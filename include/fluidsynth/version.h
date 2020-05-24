@@ -31,10 +31,10 @@ extern "C" {
  * @brief Library version functions and defines
  */
 
-#define FLUIDSYNTH_VERSION       @FLUIDSYNTH_VERSION@           /**< String constant of libfluidsynth version. */
-#define FLUIDSYNTH_VERSION_MAJOR @FLUIDSYNTH_VERSION_MAJOR@     /**< libfluidsynth major version integer constant. */
-#define FLUIDSYNTH_VERSION_MINOR @FLUIDSYNTH_VERSION_MINOR@     /**< libfluidsynth minor version integer constant. */
-#define FLUIDSYNTH_VERSION_MICRO @FLUIDSYNTH_VERSION_MICRO@     /**< libfluidsynth micro version integer constant. */
+#define FLUIDSYNTH_VERSION       "1.0-warlock"           /**< String constant of libfluidsynth version. */
+#define FLUIDSYNTH_VERSION_MAJOR 1     /**< libfluidsynth major version integer constant. */
+#define FLUIDSYNTH_VERSION_MINOR 0     /**< libfluidsynth minor version integer constant. */
+#define FLUIDSYNTH_VERSION_MICRO 0     /**< libfluidsynth micro version integer constant. */
 
 FLUIDSYNTH_API void fluid_version(int *major, int *minor, int *micro);
 FLUIDSYNTH_API char* fluid_version_str(void);

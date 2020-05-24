@@ -1,9 +1,11 @@
 #define _POSIX_C_SOURCE 200809L
-#include <unistd.h>
 
 #include "timing_mach.h"
 
 #if (defined(__MACH__) && TIMING_MACH_BEFORE_10_12)
+
+#include <unistd.h>
+
 /* ******** */
 /* __MACH__ */
 
@@ -104,7 +106,7 @@ extern void timespec_monoadd(struct timespec *ts_out,
 
 /* __MACH__ */
 /* ******** */
-#endif
+
 
 int itimer_start (struct timespec *ts_target, const struct timespec *ts_step) {
     int retval = clock_gettime(CLOCK_MONOTONIC, ts_target);
@@ -123,3 +125,5 @@ int itimer_step (struct timespec *ts_target, const struct timespec *ts_step) {
     }
     return retval;
 }
+
+#endif

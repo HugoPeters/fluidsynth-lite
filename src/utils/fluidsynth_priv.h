@@ -30,7 +30,7 @@
 #include "config_maxmsp43.h"
 #endif
 
-#if defined(WIN32) && !defined(MINGW32)
+#if defined(PLATFORM_WIN)
 #include "config_win32.h"
 #endif
 
