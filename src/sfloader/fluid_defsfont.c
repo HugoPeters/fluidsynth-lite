@@ -43,6 +43,25 @@
 
 #define FLUID_INT_TO_POINTER(val) ((void*) (((char*) 0) + (val)))
 
+func_open g_callback_open;
+func_close g_callback_close;
+func_seek g_callback_seek;
+func_tell g_callback_tell;
+func_rewind g_callback_rewind;
+func_read g_callback_read;
+func_eof g_callback_eof;
+
+void fluid_defsfont_set_callbacks(func_open callback_open, func_close callback_close, func_seek callback_seek, func_tell callback_tell, func_rewind callback_rewind, func_read callback_read, func_eof callback_eof)
+{
+    g_callback_open = callback_open;
+    g_callback_close = callback_close;
+    g_callback_seek = callback_seek;
+    g_callback_tell = callback_tell;
+    g_callback_rewind = callback_rewind;
+    g_callback_read = callback_read;
+    g_callback_eof = callback_eof;
+}
+
 /***************************************************************
  *
  *                           SFONT LOADER
@@ -250,22 +269,11 @@ static fluid_mutex_t cached_sampledata_mutex;
 static int fluid_get_file_modification_time(char *filename,
         time_t *modification_time)
 {
-#if defined(WIN32) || defined(__OS2__)
     *modification_time = 0;
     return FLUID_OK;
-#else
-    struct stat buf;
-
-    if (stat(filename, &buf) == -1) {
-        return FLUID_FAILED;
-    }
-
-    *modification_time = buf.st_mtime;
-    return FLUID_OK;
-#endif
 }
 
-static int fluid_cached_sampledata_load(char *filename, unsigned int samplepos,
+static int fluid_cached_sampledata_load(fluid_defsfont_t* sfont, char *filename, unsigned int samplepos,
                                         unsigned int samplesize,
                                         short **sampledata, int try_mlock)
 {
@@ -309,12 +317,12 @@ static int fluid_cached_sampledata_load(char *filename, unsigned int samplepos,
         goto success_exit;
     }
 
-    fd = FLUID_FOPEN(filename, "rb");
+    fd = g_callback_open(sfont->handle);
     if (fd == NULL) {
         FLUID_LOG(FLUID_ERR, "Can't open soundfont file");
         goto error_exit;
     }
-    if (FLUID_FSEEK(fd, samplepos, SEEK_SET) == -1) {
+    if (g_callback_seek(fd, samplepos, SEEK_SET) == -1) {
         perror("error");
         FLUID_LOG(FLUID_ERR, "Failed to seek position in data file");
         goto error_exit;
@@ -325,12 +333,12 @@ static int fluid_cached_sampledata_load(char *filename, unsigned int samplepos,
         FLUID_LOG(FLUID_ERR, "Out of memory");
         goto error_exit;
     }
-    if (FLUID_FREAD(loaded_sampledata, 1, samplesize, fd) < samplesize) {
+    if (g_callback_read(loaded_sampledata, 1, samplesize, fd) < samplesize) {
         FLUID_LOG(FLUID_ERR, "Failed to read sample data");
         goto error_exit;
     }
 
-    FLUID_FCLOSE(fd);
+    g_callback_close(fd);
     fd = NULL;
 
     cached_sampledata = (fluid_cached_sampledata_t *)FLUID_MALLOC(
@@ -388,7 +396,7 @@ success_exit:
 
 error_exit:
     if (fd != NULL) {
-        FLUID_FCLOSE(fd);
+        g_callback_close(fd);
     }
     if (loaded_sampledata != NULL) {
         FLUID_FREE(loaded_sampledata);
@@ -570,7 +578,7 @@ char *fluid_defsfont_get_name(fluid_defsfont_t *sfont)
 /*
  * fluid_defsfont_load
  */
-int fluid_defsfont_load(fluid_defsfont_t *sfont, const char *file)
+int fluid_defsfont_load(fluid_defsfont_t *sfont, const char* filename)
 {
     SFData *sfdata;
     fluid_list_t *p;
@@ -579,19 +587,16 @@ int fluid_defsfont_load(fluid_defsfont_t *sfont, const char *file)
     fluid_sample_t *sample;
     fluid_defpreset_t *preset = NULL;
 
-    sfont->filename = FLUID_MALLOC(1 + FLUID_STRLEN(file));
-    if (sfont->filename == NULL) {
-        FLUID_LOG(FLUID_ERR, "Out of memory");
-        return FLUID_FAILED;
-    }
-    FLUID_STRCPY(sfont->filename, file);
+    sfont->filename = "custom";
 
     /* The actual loading is done in the sfont and sffile files */
-    sfdata = sfload_file(file);
+    sfdata = sfload_file(filename);
     if (sfdata == NULL) {
         FLUID_LOG(FLUID_ERR, "Couldn't load soundfont file");
         return FLUID_FAILED;
     }
+
+    sfont->handle = (void*)filename;
 
     /* Keep track of the position and size of the sample data because
        it's loaded separately (and might be unoaded/reloaded in future) */
@@ -699,7 +704,7 @@ int fluid_defsfont_add_preset(fluid_defsfont_t *sfont,
  */
 int fluid_defsfont_load_sampledata(fluid_defsfont_t *sfont)
 {
-    return fluid_cached_sampledata_load(sfont->filename, sfont->samplepos,
+    return fluid_cached_sampledata_load(sfont, sfont->filename, sfont->samplepos,
                                         sfont->samplesize, &sfont->sampledata,
                                         sfont->mlock);
 }
@@ -1997,22 +2002,22 @@ int fluid_sample_import_sfont(fluid_sample_t *sample, SFSample *sfsample,
   STMT_END
 
 static int chunkid(unsigned int id);
-static int load_body(unsigned int size, SFData *sf, FILE *fd);
-static int read_listchunk(SFChunk *chunk, FILE *fd);
-static int process_info(int size, SFData *sf, FILE *fd);
-static int process_sdta(unsigned int size, SFData *sf, FILE *fd);
+static int load_body(unsigned int size, SFData *sf, void *fd);
+static int read_listchunk(SFChunk *chunk, void *fd);
+static int process_info(int size, SFData *sf, void *fd);
+static int process_sdta(unsigned int size, SFData *sf, void *fd);
 static int pdtahelper(unsigned int expid, unsigned int reclen, SFChunk *chunk,
-                      int *size, FILE *fd);
-static int process_pdta(int size, SFData *sf, FILE *fd);
-static int load_phdr(int size, SFData *sf, FILE *fd);
-static int load_pbag(int size, SFData *sf, FILE *fd);
-static int load_pmod(int size, SFData *sf, FILE *fd);
-static int load_pgen(int size, SFData *sf, FILE *fd);
-static int load_ihdr(int size, SFData *sf, FILE *fd);
-static int load_ibag(int size, SFData *sf, FILE *fd);
-static int load_imod(int size, SFData *sf, FILE *fd);
-static int load_igen(int size, SFData *sf, FILE *fd);
-static int load_shdr(unsigned int size, SFData *sf, FILE *fd);
+                      int *size, void *fd);
+static int process_pdta(int size, SFData *sf, void *fd);
+static int load_phdr(int size, SFData *sf, void *fd);
+static int load_pbag(int size, SFData *sf, void *fd);
+static int load_pmod(int size, SFData *sf, void *fd);
+static int load_pgen(int size, SFData *sf, void *fd);
+static int load_ihdr(int size, SFData *sf, void *fd);
+static int load_ibag(int size, SFData *sf, void *fd);
+static int load_imod(int size, SFData *sf, void *fd);
+static int load_igen(int size, SFData *sf, void *fd);
+static int load_shdr(unsigned int size, SFData *sf, void *fd);
 static int fixup_pgen(SFData *sf);
 static int fixup_igen(SFData *sf);
 static int fixup_sample(SFData *sf);
@@ -2057,41 +2062,41 @@ static int chunkid(uint32_t id)
     return (UNKN_ID);
 }
 
-SFData *sfload_file(const char *fname)
+SFData *sfload_file(const char* filename)
 {
     SFData *sf = NULL;
-    FILE *fd;
+    void *fd = NULL;
     int fsize = 0;
     int err = FALSE;
 
-    if (!(fd = fopen(fname, "rb"))) {
-        FLUID_LOG(FLUID_ERR, _("Unable to open file \"%s\""), fname);
+    if (!(fd = g_callback_open(filename))) {
+        FLUID_LOG(FLUID_ERR, _("Unable to open file"));
         return (NULL);
     }
 
     if (!(sf = FLUID_NEW(SFData))) {
         FLUID_LOG(FLUID_ERR, "Out of memory");
-        fclose(fd);
+        g_callback_close(fd);
         err = TRUE;
     }
 
     if (!err) {
         memset(sf, 0, sizeof(SFData));   /* zero sfdata */
-        sf->fname = FLUID_STRDUP(fname); /* copy file name */
+        sf->fname = "custom"; 
         sf->sffd = fd;
     }
 
     /* get size of file */
-    if (!err && fseek(fd, 0L, SEEK_END) == -1) { /* seek to end of file */
+    if (!err && g_callback_seek(fd, 0L, SEEK_END) == -1) { /* seek to end of file */
         err = TRUE;
         FLUID_LOG(FLUID_ERR, _("Seek to end of file failed"));
     }
-    if (!err && (fsize = ftell(fd)) == -1) { /* position = size */
+    if (!err && (fsize = g_callback_tell(fd)) == -1) { /* position = size */
         err = TRUE;
         FLUID_LOG(FLUID_ERR, _("Get end of file position failed"));
     }
     if (!err)
-        rewind(fd);
+        g_callback_rewind(fd);
 
     if (!err && !load_body(fsize, sf, fd))
         err = TRUE; /* load the sfont */
@@ -2105,7 +2110,7 @@ SFData *sfload_file(const char *fname)
     return (sf);
 }
 
-static int load_body(unsigned int size, SFData *sf, FILE *fd)
+static int load_body(unsigned int size, SFData *sf, void *fd)
 {
     SFChunk chunk;
 
@@ -2164,7 +2169,7 @@ static int load_body(unsigned int size, SFData *sf, FILE *fd)
     return (OK);
 }
 
-static int read_listchunk(SFChunk *chunk, FILE *fd)
+static int read_listchunk(SFChunk *chunk, void *fd, fluid_sfloader_t* loader)
 {
     READCHUNK(chunk, fd);              /* read list chunk */
     if (chunkid(chunk->id) != LIST_ID) /* error if ! list chunk */
@@ -2174,7 +2179,7 @@ static int read_listchunk(SFChunk *chunk, FILE *fd)
     return (OK);
 }
 
-static int process_info(int size, SFData *sf, FILE *fd)
+static int process_info(int size, SFData *sf, void *fd)
 {
     SFChunk chunk;
     unsigned char id;
@@ -2253,7 +2258,7 @@ static int process_info(int size, SFData *sf, FILE *fd)
     return (OK);
 }
 
-static int process_sdta(unsigned int size, SFData *sf, FILE *fd)
+static int process_sdta(unsigned int size, SFData *sf, void *fd)
 {
     SFChunk chunk;
 
@@ -2274,7 +2279,7 @@ static int process_sdta(unsigned int size, SFData *sf, FILE *fd)
         return (gerr(ErrCorr, _("SDTA chunk size mismatch")));
 
     /* sample data follows */
-    sf->samplepos = ftell(fd);
+    sf->samplepos = g_callback_tell(fd);
 
     /* used in fixup_sample() to check validity of sample headers */
     sdtachunk_size = chunk.size;
@@ -2286,7 +2291,7 @@ static int process_sdta(unsigned int size, SFData *sf, FILE *fd)
 }
 
 static int pdtahelper(unsigned int expid, unsigned int reclen, SFChunk *chunk,
-                      int *size, FILE *fd)
+                      int *size, void *fd)
 {
     unsigned int id;
     const char *expstr;
@@ -2313,7 +2318,7 @@ static int pdtahelper(unsigned int expid, unsigned int reclen, SFChunk *chunk,
     return (OK);
 }
 
-static int process_pdta(int size, SFData *sf, FILE *fd)
+static int process_pdta(int size, SFData *sf, void *fd)
 {
     SFChunk chunk;
 
@@ -2366,7 +2371,7 @@ static int process_pdta(int size, SFData *sf, FILE *fd)
 }
 
 /* preset header loader */
-static int load_phdr(int size, SFData *sf, FILE *fd)
+static int load_phdr(int size, SFData *sf, void *fd)
 {
     int i, i2;
     SFPreset *p, *pr = NULL; /* ptr to current & previous preset */
@@ -2423,7 +2428,7 @@ static int load_phdr(int size, SFData *sf, FILE *fd)
 }
 
 /* preset bag loader */
-static int load_pbag(int size, SFData *sf, FILE *fd)
+static int load_pbag(int size, SFData *sf, void *fd)
 {
     fluid_list_t *p, *p2;
     SFZone *z, *pz = NULL;
@@ -2500,7 +2505,7 @@ static int load_pbag(int size, SFData *sf, FILE *fd)
 }
 
 /* preset modulator loader */
-static int load_pmod(int size, SFData *sf, FILE *fd)
+static int load_pmod(int size, SFData *sf, void *fd)
 {
     fluid_list_t *p, *p2, *p3;
     SFMod *m;
@@ -2554,7 +2559,7 @@ static int load_pmod(int size, SFData *sf, FILE *fd)
  * if a generator follows an instrument discard it
  * if a duplicate generator exists replace previous one
  * ------------------------------------------------------------------- */
-static int load_pgen(int size, SFData *sf, FILE *fd)
+static int load_pgen(int size, SFData *sf, void *fd)
 {
     fluid_list_t *p, *p2, *p3, *dup, **hz = NULL;
     SFZone *z;
@@ -2689,7 +2694,7 @@ static int load_pgen(int size, SFData *sf, FILE *fd)
 }
 
 /* instrument header loader */
-static int load_ihdr(int size, SFData *sf, FILE *fd)
+static int load_ihdr(int size, SFData *sf, void* fd)
 {
     int i, i2;
     SFInst *p, *pr = NULL; /* ptr to current & previous instrument */
@@ -2738,7 +2743,7 @@ static int load_ihdr(int size, SFData *sf, FILE *fd)
 }
 
 /* instrument bag loader */
-static int load_ibag(int size, SFData *sf, FILE *fd)
+static int load_ibag(int size, SFData *sf, void* fd)
 {
     fluid_list_t *p, *p2;
     SFZone *z, *pz = NULL;
@@ -2816,7 +2821,7 @@ static int load_ibag(int size, SFData *sf, FILE *fd)
 }
 
 /* instrument modulator loader */
-static int load_imod(int size, SFData *sf, FILE *fd)
+static int load_imod(int size, SFData *sf, void* fd)
 {
     fluid_list_t *p, *p2, *p3;
     SFMod *m;
@@ -2859,7 +2864,7 @@ static int load_imod(int size, SFData *sf, FILE *fd)
 }
 
 /* load instrument generators (see load_pgen for loading rules) */
-static int load_igen(int size, SFData *sf, FILE *fd)
+static int load_igen(int size, SFData *sf, void* fd)
 {
     fluid_list_t *p, *p2, *p3, *dup, **hz = NULL;
     SFZone *z;
@@ -2994,7 +2999,7 @@ static int load_igen(int size, SFData *sf, FILE *fd)
 }
 
 /* sample header loader */
-static int load_shdr(unsigned int size, SFData *sf, FILE *fd)
+static int load_shdr(unsigned int size, SFData *sf, void* fd)
 {
     unsigned int i;
     SFSample *p;
@@ -3175,10 +3180,7 @@ void sfont_close(SFData *sf)
     fluid_list_t *p, *p2;
 
     if (sf->sffd)
-        fclose(sf->sffd);
-
-    if (sf->fname)
-        free(sf->fname);
+        g_callback_close(sf->sffd);
 
     p = sf->info;
     while (p) {
@@ -3329,10 +3331,10 @@ int gerr(int ev, char *fmt, ...)
     return (FAIL);
 }
 
-int safe_fread(void *buf, int count, FILE *fd)
+int safe_fread(void *buf, int count, void* fd)
 {
-    if (fread(buf, count, 1, fd) != 1) { /* size_t = count, nmemb = 1 */
-        if (feof(fd))
+    if (g_callback_read(buf, count, 1, fd) != 1) { /* size_t = count, nmemb = 1 */
+        if (g_callback_eof(fd))
             gerr(ErrEof, _("EOF while attemping to read %d bytes"), count);
         else
             FLUID_LOG(FLUID_ERR, _("File read failed"));
@@ -3341,9 +3343,9 @@ int safe_fread(void *buf, int count, FILE *fd)
     return (OK);
 }
 
-int safe_fseek(FILE *fd, long ofs, int whence)
+int safe_fseek(void* fd, long ofs, int whence)
 {
-    if (fseek(fd, ofs, whence) == -1) {
+    if (g_callback_seek(fd, ofs, whence) == -1) {
         FLUID_LOG(FLUID_ERR,
                   _("File seek failed with offset = %ld and whence = %d"), ofs,
                   whence);

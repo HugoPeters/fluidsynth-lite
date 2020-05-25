@@ -254,7 +254,7 @@ static FLUID_INLINE fluid_cond_mutex_t *
 new_fluid_cond_mutex (void)
 {
     fluid_cond_mutex_t *mutex;
-    mutex = malloc(sizeof(fluid_cond_mutex_t));
+    mutex = (fluid_cond_mutex_t*)malloc(sizeof(fluid_cond_mutex_t));
     fluid_cond_mutex_init(mutex);
     return mutex;
 }
@@ -278,7 +278,7 @@ static FLUID_INLINE fluid_cond_t *
 new_fluid_cond (void)
 {
     fluid_cond_t *cond;
-    cond = malloc(sizeof(fluid_cond_t));
+    cond = (fluid_cond_t*)malloc(sizeof(fluid_cond_t));
     fluid_cond_init(cond);
     return cond;
 }
