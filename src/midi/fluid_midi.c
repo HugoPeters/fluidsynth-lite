@@ -23,6 +23,8 @@
 #include "fluid_synth.h"
 #include "fluid_settings.h"
 
+#define LOOP_MARKER_DEBUG 0
+
 
 static int fluid_midi_event_length(unsigned char event);
 
@@ -362,12 +364,16 @@ fluid_midi_file_read_track(fluid_midi_file *mf, fluid_player_t *player, int num)
                 return FLUID_FAILED;
             }
 
+            track->cur_ticks = 0;
+
             while (!fluid_midi_file_eot(mf)) {
                 if (fluid_midi_file_read_event(mf, track) != FLUID_OK) {
                     delete_fluid_track(track);
                     return FLUID_FAILED;
                 }
             }
+
+            track->cur_ticks = 0;
 
             /* Skip remaining track data, if any */
             if (mf->trackpos < mf->tracklen)
@@ -391,6 +397,12 @@ fluid_midi_file_read_track(fluid_midi_file *mf, fluid_player_t *player, int num)
         FLUID_LOG(FLUID_ERR, "Unexpected end of file");
         return FLUID_FAILED;
     }
+
+    if (track && track->cur_loopstack_level != 0) {
+        FLUID_LOG(FLUID_ERR, "Malformed loopStart/loopEnd markers");
+        return FLUID_FAILED;
+    }
+
     return FLUID_OK;
 }
 
@@ -448,6 +460,7 @@ fluid_midi_file_read_event(fluid_midi_file *mf, fluid_track_t *track)
         return FLUID_FAILED;
     }
     mf->dtime += mf->varlen;
+    track->cur_ticks += mf->varlen;
 
     /* read the status byte */
     status = fluid_midi_file_getc(mf);
@@ -571,8 +584,75 @@ fluid_midi_file_read_event(fluid_midi_file *mf, fluid_track_t *track)
         case MIDI_LYRIC:
             break;
 
-        case MIDI_MARKER:
+        case MIDI_MARKER: {
+            metadata[mf->varlen] = 0;
+
+            // parse the marker type
+            const char* markertype = metadata;
+            char* markervalsep = FLUID_STRCHR(metadata, '=');
+            const char* markervalue = NULL;
+
+            if (markervalsep) {
+                *markervalsep = 0;
+                markervalue = markervalsep + 1;
+            }
+
+            if (FLUID_STRCMP(markertype, "loopStart") == 0) {
+                if (markervalue) {
+                    fluid_loop_region_t* region = new_fluid_loop_region();
+                    region->max_loops = FLUID_ATOI(markervalue);
+                    region->depth = track->cur_loopstack_level++;
+                    region->id = fluid_list_size(track->loops);
+                    region->ticks_on_enter = track->cur_ticks;
+
+                    track->loops = fluid_list_append(track->loops, region);
+                    ++track->num_loopregions;
+
+                    evt = new_fluid_midi_event();
+                    if (evt == NULL) {
+                        FLUID_LOG(FLUID_ERR, "Out of memory");
+                        result = FLUID_FAILED;
+                        break;
+                    }
+
+                    evt->type = MIDI_LOOPSTART;
+                    evt->param1 = region->id;
+                }
+                else {
+                    FLUID_LOG(FLUID_ERR, "Invalid loopStart found!");
+                    break;
+                }
+            }
+
+            if (FLUID_STRCMP(markertype, "loopEnd") == 0) {
+                evt = new_fluid_midi_event();
+                if (evt == NULL) {
+                    FLUID_LOG(FLUID_ERR, "Out of memory");
+                    result = FLUID_FAILED;
+                    break;
+                }
+
+                --track->cur_loopstack_level;
+
+                evt->type = MIDI_LOOPEND;
+                evt->param1 = 0;
+            }
+
+            if (FLUID_STRCMP(markertype, "group") == 0) {
+                int v = FLUID_ATOI(markervalue);
+                track->group = v;
+            }
+
+            if (evt != NULL) {
+                evt->dtime = mf->dtime;
+                evt->channel = 0;
+                evt->param2 = 0;
+                fluid_track_add_event(track, evt);
+                mf->dtime = 0;
+            }
+
             break;
+        }
 
         case MIDI_CUE_POINT:
             break; /* don't care much for text events */
@@ -1025,6 +1105,51 @@ fluid_midi_event_set_sysex(fluid_midi_event_t *evt, void *data, int size, int dy
 }
 
 /******************************************************
+*
+*     fluid_loop_region_t
+*/
+
+fluid_loop_region_t* 
+new_fluid_loop_region(void)
+{
+    fluid_loop_region_t *loop;
+    loop = FLUID_NEW(fluid_loop_region_t);
+    if (loop == NULL) {
+        return NULL;
+    }
+
+    loop->max_loops = 0;
+    loop->num_completed_loops = 0;
+    loop->id = 0;
+    loop->ticks_on_enter = 0;
+    loop->depth = 0;
+
+    return loop;
+}
+
+int delete_fluid_loop_region(fluid_loop_region_t* region)
+{
+    FLUID_FREE(region);
+    return FLUID_OK;
+}
+
+fluid_list_t* fluid_find_next_sub_loop_region(fluid_track_t* track, fluid_list_t* region)
+{
+    if (region->next == NULL)
+        return NULL;
+
+    fluid_loop_region_t* next = (fluid_loop_region_t*)region->next->data;
+
+    if (!next)
+        return NULL;
+
+    if (next->depth > ((fluid_loop_region_t*)region->data)->depth)
+        return region->next;
+
+    return NULL;
+}
+
+/******************************************************
  *
  *     fluid_track_t
  */
@@ -1046,6 +1171,16 @@ new_fluid_track(int num)
     track->cur = NULL;
     track->last = NULL;
     track->ticks = 0;
+    track->cur_ticks = 0;
+    track->group = 0;
+    track->num_loopregions = 0;
+    track->loops = NULL;
+    
+    for (int i = 0; i < MAX_NUMBER_OF_LOOP_REGIONS; ++i)
+        track->loopstack[i] = NULL;
+
+    track->cur_loopstack_level = 0;
+
     return track;
 }
 
@@ -1060,6 +1195,16 @@ delete_fluid_track(fluid_track_t *track)
     }
     if (track->first != NULL) {
         delete_fluid_midi_event(track->first);
+    }
+    if (track->loops != NULL) {
+
+        fluid_list_t* loops = track->loops;
+        while (loops) {
+            delete_fluid_loop_region((fluid_loop_region_t*)loops->data);
+            loops = loops->next;
+        }
+
+        delete_fluid_list(track->loops);
     }
     FLUID_FREE(track);
     return FLUID_OK;
@@ -1178,8 +1323,89 @@ int
 fluid_track_reset(fluid_track_t *track)
 {
     track->ticks = 0;
+    track->cur_ticks = 0;
     track->cur = track->first;
     return FLUID_OK;
+}
+
+int
+fluid_track_push_loop_region(fluid_track_t* track, int id)
+{
+    if (id >= track->num_loopregions) {
+        FLUID_LOG(FLUID_ERR, "%s: Couldn't push loop region %i, out of range", track->name, id);
+        return FLUID_FAILED;
+    }
+
+    fluid_list_t* list = fluid_list_nth(track->loops, id);
+    fluid_loop_region_t* loop = (fluid_loop_region_t*)list->data;
+
+    if (loop->max_loops == 0) {
+        FLUID_LOG(FLUID_ERR, "%s: Couldn't push loop region %i, a max_loops of zero is not supported", track->name, id);
+        return FLUID_FAILED;
+    }
+
+    if (loop->max_loops > -1) {
+        if (loop->num_completed_loops >= loop->max_loops) {
+            return FLUID_OK;
+        }
+    }
+
+    if (track->cur_loopstack_level >= MAX_NUMBER_OF_LOOP_REGIONS) {
+        FLUID_LOG(FLUID_ERR, "%s: Couldn't push loop region %i, the max number of loops in the stack has been reached (%i)", track->name, id, MAX_NUMBER_OF_LOOP_REGIONS);
+        return FLUID_FAILED;
+    }
+
+    track->loopstack[track->cur_loopstack_level++] = loop;
+
+    // FIXME: give user an option to not reset sub loops?
+    fluid_list_t* sublist = fluid_find_next_sub_loop_region(track, list);
+
+    while (sublist)
+    {
+        ((fluid_loop_region_t*)sublist->data)->num_completed_loops = 0;
+        sublist = fluid_find_next_sub_loop_region(track, sublist);
+    }
+
+#if LOOP_MARKER_DEBUG
+    FLUID_LOG(FLUID_INFO, "%s: Pushed loop region %i @ %i ticks (max loop = %i, cur loop = %i, stack lvl = %i)", track->name, loop->id, loop->ticks_on_enter, loop->max_loops, loop->num_completed_loops, track->cur_loopstack_level);
+#endif
+
+    return FLUID_OK;
+}
+
+unsigned int
+fluid_track_pop_loop_region(fluid_track_t* track)
+{
+    if (track->cur_loopstack_level == 0) {
+        FLUID_LOG(FLUID_ERR, "%s: Trying to pop loop region @ %i ticks but none has been pushed on the stack", track->name, track->cur_ticks);
+        return -1; // explicit -1 as return value acts as new ticks
+    }
+
+    if (track->cur_loopstack_level >= MAX_NUMBER_OF_LOOP_REGIONS) {
+        FLUID_LOG(FLUID_ERR, "%s: Trying to pop loop region but the stack level is out of bounds: %i, max %i", track->name, track->cur_loopstack_level, MAX_NUMBER_OF_LOOP_REGIONS);
+        return -1; // explicit -1 as return value acts as new ticks
+    }
+
+    --track->cur_loopstack_level;
+
+    fluid_loop_region_t* loop = track->loopstack[track->cur_loopstack_level];
+
+    if (loop->max_loops > -1) {
+        ++loop->num_completed_loops;
+    }
+
+    if (loop->max_loops == -1 || loop->num_completed_loops < loop->max_loops) {
+    #if LOOP_MARKER_DEBUG
+        FLUID_LOG(FLUID_INFO, "%s: POPPED loop region %i, will seek to %i (max loop = %i, cur loop = %i)", track->name, loop->id, loop->ticks_on_enter, loop->max_loops, loop->num_completed_loops);
+    #endif
+        return loop->ticks_on_enter;
+    }
+    else {
+    #if LOOP_MARKER_DEBUG
+        FLUID_LOG(FLUID_INFO, "%s: POPPED loop region %i, will NOT seek %i (max loop = %i, cur loop = %i)", track->name, loop->id, loop->max_loops, loop->num_completed_loops);
+    #endif
+        return -1;
+    }
 }
 
 /*
@@ -1188,43 +1414,82 @@ fluid_track_reset(fluid_track_t *track)
 int
 fluid_track_send_events(fluid_track_t *track,
                         fluid_synth_t *synth,
-                        fluid_player_t *player,
-                        unsigned int ticks)
+                        fluid_player_t *player)
 {
     int status = FLUID_OK;
     fluid_midi_event_t *event;
+    unsigned int new_ticks = -1;
 
-    while (1) {
+    do {
+        new_ticks = -1;
 
-        event = track->cur;
-        if (event == NULL) {
-            return status;
+        while (1) {
+            
+            event = track->cur;
+            if (event == NULL) {
+                break;
+            }
+
+            /* 		printf("track=%02d\tticks=%05u\ttrack=%05u\tdtime=%05u\tnext=%05u\n", */
+            /* 		       track->num, */
+            /* 		       ticks, */
+            /* 		       track->ticks, */
+            /* 		       event->dtime, */
+            /* 		       track->ticks + event->dtime); */
+
+            if (track->ticks + event->dtime > track->cur_ticks) {
+                break;
+            }
+
+            track->ticks += event->dtime;
+
+            if (!player || event->type == MIDI_EOT) {
+            }
+            else if (event->type == MIDI_SET_TEMPO) {
+                fluid_player_set_midi_tempo(player, event->param1);
+            }
+            else if (event->type == MIDI_LOOPSTART) {
+                fluid_track_push_loop_region(track, event->param1);
+            }
+            else if (event->type == MIDI_LOOPEND) {
+                new_ticks = fluid_track_pop_loop_region(track);
+            }
+            else {
+                if (player->playback_callback)
+                    player->playback_callback(player->playback_userdata, event);
+            }
+
+            fluid_track_next_event(track);
+
         }
 
-        /* 		printf("track=%02d\tticks=%05u\ttrack=%05u\tdtime=%05u\tnext=%05u\n", */
-        /* 		       track->num, */
-        /* 		       ticks, */
-        /* 		       track->ticks, */
-        /* 		       event->dtime, */
-        /* 		       track->ticks + event->dtime); */
+        if (new_ticks != -1) {
+           
+            // seek to point in midi
+            track->cur_ticks = new_ticks;
 
-        if (track->ticks + event->dtime > ticks) {
-            return status;
+            fluid_track_first_event(track);
+
+            int time = 0;
+            fluid_midi_event_t *evt = track->cur;
+            while (time < new_ticks) {
+
+                if (time + evt->dtime >= new_ticks)
+                    break;
+
+                time += evt->dtime;
+                evt = evt->next;
+                track->cur = evt;
+            }
+
+            track->ticks = time;
+
+        #if LOOP_MARKER_DEBUG
+            FLUID_LOG(FLUID_INFO, "%s: Seeked to %i ticks, target %i", track->name, time, new_ticks);
+        #endif
         }
+    } while (new_ticks != -1);
 
-        track->ticks += event->dtime;
-
-        if (!player || event->type == MIDI_EOT) {
-        } else if (event->type == MIDI_SET_TEMPO) {
-            fluid_player_set_midi_tempo(player, event->param1);
-        } else {
-            if (player->playback_callback)
-                player->playback_callback(player->playback_userdata, event);
-        }
-
-        fluid_track_next_event(track);
-
-    }
     return status;
 }
 
@@ -1606,16 +1871,21 @@ fluid_player_callback(void *data, unsigned int msec)
             }
         }
 
+        int last_ticks = player->cur_ticks;
+
         player->cur_msec = msec;
         player->cur_ticks = (player->start_ticks
                              + (int) ((double) (player->cur_msec - player->start_msec)
                                       / player->deltatime));
 
+        int delta_ticks = player->cur_ticks - last_ticks;
+
         for (i = 0; i < player->ntracks; i++) {
             if (!fluid_track_eot(player->track[i])) {
                 status = FLUID_PLAYER_PLAYING;
-                if (fluid_track_send_events(player->track[i], synth, player,
-                                            player->cur_ticks) != FLUID_OK) {
+                player->track[i]->cur_ticks += delta_ticks;
+
+                if (fluid_track_send_events(player->track[i], synth, player) != FLUID_OK) {
                     /* */
                 }
             }

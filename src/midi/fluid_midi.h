@@ -39,6 +39,7 @@ fluid_midi_event_t* fluid_midi_parser_parse(fluid_midi_parser_t* parser, unsigne
 
 
 #define MAX_NUMBER_OF_TRACKS 128
+#define MAX_NUMBER_OF_LOOP_REGIONS 8
 
 enum fluid_midi_event_type {
     /* channel messages */
@@ -166,7 +167,10 @@ enum midi_meta_event {
     MIDI_SMPTE_OFFSET = 0x54,
     MIDI_TIME_SIGNATURE = 0x58,
     MIDI_KEY_SIGNATURE = 0x59,
-    MIDI_SEQUENCER_EVENT = 0x7f
+    MIDI_SEQUENCER_EVENT = 0x7f,
+
+    MIDI_LOOPSTART = 0xE1,
+    MIDI_LOOPEND = 0xE2
 };
 
 /* MIDI SYSEX useful manufacturer values */
@@ -231,6 +235,16 @@ struct _fluid_midi_event_t {
     unsigned char channel;    /* MIDI channel */
 };
 
+/*
+ * fluid_loop_region_t
+ */
+struct _fluid_loop_region_t {
+    int max_loops;
+    int num_completed_loops;
+    int id;
+    int depth;
+    unsigned int ticks_on_enter;
+};
 
 /*
  * fluid_track_t
@@ -238,10 +252,16 @@ struct _fluid_midi_event_t {
 struct _fluid_track_t {
     char* name;
     int num;
+    int group;
     fluid_midi_event_t *first;
     fluid_midi_event_t *cur;
     fluid_midi_event_t *last;
     unsigned int ticks;
+    unsigned int cur_ticks;
+    int num_loopregions;
+    fluid_list_t *loops;
+    fluid_loop_region_t *loopstack[MAX_NUMBER_OF_LOOP_REGIONS];
+    int cur_loopstack_level;
 };
 
 typedef struct _fluid_track_t fluid_track_t;
@@ -255,11 +275,16 @@ fluid_midi_event_t* fluid_track_first_event(fluid_track_t* track);
 fluid_midi_event_t* fluid_track_next_event(fluid_track_t* track);
 int fluid_track_get_duration(fluid_track_t* track);
 int fluid_track_reset(fluid_track_t* track);
+int fluid_track_push_loop_region(fluid_track_t* track, int id);
+unsigned int fluid_track_pop_loop_region(fluid_track_t* track);
 
 int fluid_track_send_events(fluid_track_t* track,
                             fluid_synth_t* synth,
-                            fluid_player_t* player,
-                            unsigned int ticks);
+                            fluid_player_t* player);
+
+fluid_loop_region_t* new_fluid_loop_region(void);
+int delete_fluid_loop_region(fluid_loop_region_t* region);
+fluid_list_t* fluid_find_next_sub_loop_region(fluid_track_t* track, fluid_list_t* region);
 
 #define fluid_track_eot(track)  ((track)->cur == NULL)
 
