@@ -52,6 +52,7 @@ new_fluid_channel(fluid_synth_t* synth, int num)
 
     chan->synth = synth;
     chan->channum = num;
+    chan->gain_scale = 1.f;
     chan->preset = NULL;
     chan->tuning = NULL;
 

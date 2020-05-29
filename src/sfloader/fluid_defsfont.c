@@ -716,6 +716,11 @@ fluid_defpreset_t *fluid_defsfont_get_preset(fluid_defsfont_t *sfont,
         unsigned int bank,
         unsigned int num)
 {
+    // WARLOCK HACK: DP midis sometimes have a out-of-bounds bank number, while really we only have one bank
+    // dirty hack here:
+    if (bank > 1)
+        bank = 0;
+
     fluid_defpreset_t *preset = sfont->preset;
     while (preset != NULL) {
         if ((preset->bank == bank) && ((preset->num == num))) {

@@ -292,7 +292,8 @@ fluid_voice_init(fluid_voice_t* voice, fluid_sample_t* sample,
     fluid_gen_init(&voice->gen[0], channel);
     UPDATE_RVOICE_I1(fluid_rvoice_set_samplemode, _SAMPLEMODE(voice));
 
-    voice->synth_gain = gain;
+    voice->synth_gain = gain * channel->gain_scale;
+
     /* avoid division by zero later*/
     if (voice->synth_gain < 0.0000001) {
         voice->synth_gain = 0.0000001;

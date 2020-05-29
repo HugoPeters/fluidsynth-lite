@@ -638,10 +638,20 @@ fluid_midi_file_read_event(fluid_midi_file *mf, fluid_track_t *track)
                 evt->param1 = 0;
             }
 
-            if (FLUID_STRCMP(markertype, "group") == 0) {
-                int v = FLUID_ATOI(markervalue);
-                track->group = v;
-            }
+            //if (FLUID_STRCMP(markertype, "mask") == 0) {
+            //    int v = FLUID_ATOI(markervalue);
+            //    track->mask = v;
+
+            //    evt = new_fluid_midi_event();
+            //    if (evt == NULL) {
+            //        FLUID_LOG(FLUID_ERR, "Out of memory");
+            //        result = FLUID_FAILED;
+            //        break;
+            //    }
+
+            //    evt->type = SET_MASK;
+            //    evt->param1 = track->mask;
+            //}
 
             if (evt != NULL) {
                 evt->dtime = mf->dtime;
@@ -1172,7 +1182,6 @@ new_fluid_track(int num)
     track->last = NULL;
     track->ticks = 0;
     track->cur_ticks = 0;
-    track->group = 0;
     track->num_loopregions = 0;
     track->loops = NULL;
     

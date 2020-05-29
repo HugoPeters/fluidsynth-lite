@@ -37,6 +37,8 @@ struct _fluid_channel_t {
     fluid_synth_t* synth;                 /**< Parent synthesizer instance */
     int channum;                          /**< MIDI channel number */
 
+    fluid_real_t gain_scale;              /**< 0 - 1 multiplier of the synth gain */
+
     int sfont_bank_prog;                  /**< SoundFont ID (bit 21-31), bank (bit 7-20), program (bit 0-6) */
     fluid_preset_t* preset;               /**< Selected preset */
 

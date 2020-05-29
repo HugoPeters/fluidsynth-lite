@@ -74,6 +74,9 @@ enum fluid_midi_control_change {
     BANK_SELECT_MSB = 0x00,
     MODULATION_MSB = 0x01,
     BREATH_MSB = 0x02,
+
+    SET_MASK = 0x03,
+
     FOOT_MSB = 0x04,
     PORTAMENTO_TIME_MSB = 0x05,
     DATA_ENTRY_MSB = 0x06,
@@ -252,7 +255,6 @@ struct _fluid_loop_region_t {
 struct _fluid_track_t {
     char* name;
     int num;
-    int group;
     fluid_midi_event_t *first;
     fluid_midi_event_t *cur;
     fluid_midi_event_t *last;
