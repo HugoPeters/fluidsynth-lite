@@ -34,6 +34,10 @@
 #include "config_win32.h"
 #endif
 
+#if defined(PLATFORM_JS)
+#include "config_emscripten.h"
+#endif
+
 #if HAVE_STRING_H
 #include <string.h>
 #endif
@@ -135,7 +139,7 @@ typedef float fluid_real_t;
 typedef double fluid_real_t;
 #endif
 
-#if defined(SUPPORTS_VLA)
+#if defined(SUPPORTS_VLA) || defined(__EMSCRIPTEN__)
 #  define FLUID_DECLARE_VLA(_type, _name, _len) \
      _type _name[_len]
 #else

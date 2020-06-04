@@ -8,32 +8,33 @@
 #define HAVE_FCNTL_H 1
 #define HAVE_LIMITS_H 1
 #define HAVE_IO_H 1
-#define HAVE_WINDOWS_H 1
+#define HAVE_WINDOWS_H 0
 #define HAVE_STDINT_H 1
 
-#define DSOUND_SUPPORT 1
-#define WINMIDI_SUPPORT 1
+#ifndef __STDC_NO_ATOMICS__
+#define HAVE_ATOMIC_H 1
+#endif
+
+#ifdef __EMSCRIPTEN_PTHREADS__
+#define HAVE_PTHREAD_H 1
+#endif
+
+#if HAVE_PTHREAD_H
+#define FLUID_USE_THREADING 1
+#endif
+
+
+#define DSOUND_SUPPORT 0
+#define WINMIDI_SUPPORT 0
 #define WITH_FLOAT 1
 
-#if _MSC_VER < 1900
-#define snprintf _snprintf
-#endif
-
 #define strcasecmp _stricmp
-
-#if _MSC_VER < 1500
-#define vsnprintf _vsnprintf
-#endif
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
-
 #define WITH_PROFILING 0
-
-//#define FLUID_USE_THREADING 1
-
 
 #pragma warning(disable : 4244)
 #pragma warning(disable : 4101)

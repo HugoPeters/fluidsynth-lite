@@ -423,7 +423,7 @@
 
     fluid_defsfont_t* new_fluid_defsfont(fluid_settings_t* settings);
     int delete_fluid_defsfont(fluid_defsfont_t* sfont);
-    int fluid_defsfont_load(fluid_defsfont_t* sfont, fluid_sfloader_t* loader);
+    int fluid_defsfont_load(fluid_defsfont_t* sfont, const char* filename);
     char* fluid_defsfont_get_name(fluid_defsfont_t* sfont);
     fluid_defpreset_t* fluid_defsfont_get_preset(fluid_defsfont_t* sfont, unsigned int bank, unsigned int prenum);
     void fluid_defsfont_iteration_start(fluid_defsfont_t* sfont);

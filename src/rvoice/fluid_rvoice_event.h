@@ -104,7 +104,7 @@ fluid_rvoice_eventhandler_add_rvoice(fluid_rvoice_eventhandler_t* handler,
                                      fluid_rvoice_t* rvoice)
 {
     if (handler->is_threadsafe)
-        fluid_rvoice_eventhandler_push_ptr(handler, fluid_rvoice_mixer_add_voice,
+        fluid_rvoice_eventhandler_push_ptr(handler, (void*)fluid_rvoice_mixer_add_voice,
                                            handler->mixer, rvoice);
     else
         fluid_rvoice_mixer_add_voice(handler->mixer, rvoice);

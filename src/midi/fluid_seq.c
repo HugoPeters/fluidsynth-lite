@@ -42,7 +42,7 @@
 /* Private data for SEQUENCER */
 struct _fluid_sequencer_t {
     unsigned int startMs;
-    atomic_int currentMs;
+    fluid_atomic_int currentMs;
     bool useSystemTimer;
     double scale; // ticks per second
     fluid_list_t* clients;

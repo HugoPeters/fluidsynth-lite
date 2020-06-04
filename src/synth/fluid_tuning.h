@@ -40,7 +40,7 @@ struct _fluid_tuning_t {
     int bank;
     int prog;
     double pitch[128];  /* the pitch of every key, in cents */
-    atomic_int refcount; /* Tuning reference count */
+    fluid_atomic_int refcount; /* Tuning reference count */
 };
 
 fluid_tuning_t* new_fluid_tuning(const char* name, int bank, int prog);

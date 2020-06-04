@@ -100,6 +100,7 @@ typedef int socklen_t;
 
 unsigned int fluid_curtime(void);
 double fluid_utime(void);
+void fluid_msleep(unsigned int msec);
 
 
 /**
@@ -123,7 +124,9 @@ int fluid_timer_stop(fluid_timer_t* timer);
 
 /* Muteces */
 
-#if HAVE_PTHREAD_H && !defined(_WIN32)
+#if FLUID_ENABLE_THREADING 
+
+#if HAVE_PTHREAD_H && !defined(PLATFORM_WIN)
 
 static FLUID_INLINE void
 fluid_pthread_mutex_init(pthread_mutex_t *m, int kind)
@@ -221,7 +224,7 @@ void delete_fluid_thread(fluid_thread_t* thread);
 void fluid_thread_self_set_prio (int prio_level);
 int fluid_thread_join(fluid_thread_t* thread);
 
-#else
+#elif defined(PLATFORM_WIN)
 
 static FLUID_INLINE void
 fluid_win32_mutex_init(PHANDLE m)
@@ -316,7 +319,89 @@ void delete_fluid_thread(fluid_thread_t* thread);
 void fluid_thread_self_set_prio (int prio_level);
 int fluid_thread_join(fluid_thread_t* thread);
 
-#endif /* HAVE_PTHREAD_H */
+#endif
+
+#else // FLUID_USE_THREADING
+
+/* Regular mutex */
+typedef int fluid_mutex_t;
+#define fluid_mutex_init(_m)        ((void)((_m)))
+#define fluid_mutex_destroy(_m)     ((void)((_m)))
+#define fluid_mutex_lock(_m)        ((void)0)
+#define fluid_mutex_unlock(_m)      ((void)0)
+
+/* Recursive lock capable mutex */
+typedef int fluid_rec_mutex_t;
+#define fluid_rec_mutex_init(_m)    ((void)((_m)))
+#define fluid_rec_mutex_destroy(_m) ((void)0)
+#define fluid_rec_mutex_lock(_m)    ((void)0)
+#define fluid_rec_mutex_unlock(_m)  ((void)((_m)))
+
+/* Dynamically allocated mutex suitable for fluid_cond_t use */
+typedef int fluid_cond_mutex_t;
+#define fluid_cond_mutex_init(_m)       ((void)0)
+#define fluid_cond_mutex_destroy(_m)    ((void)0)
+#define fluid_cond_mutex_lock(_m)       ((void)0)
+#define fluid_cond_mutex_unlock(_m)     ((void)0)
+
+static FLUID_INLINE fluid_cond_mutex_t *
+new_fluid_cond_mutex(void)
+{
+    fluid_cond_mutex_t *mutex;
+    mutex = (fluid_cond_mutex_t*)malloc(sizeof(fluid_cond_mutex_t));
+    fluid_cond_mutex_init(mutex);
+    return mutex;
+}
+
+static FLUID_INLINE void
+delete_fluid_cond_mutex(fluid_cond_mutex_t *m)
+{
+    fluid_cond_mutex_destroy(m);
+    free(m);
+}
+
+/* Thread condition signaling */
+typedef int fluid_cond_t;
+#define fluid_cond_init(cond)
+#define fluid_cond_destroy(cond)
+#define fluid_cond_signal(cond)
+#define fluid_cond_broadcast(cond)
+#define fluid_cond_wait(cond, mutex)
+
+static FLUID_INLINE fluid_cond_t *
+new_fluid_cond(void)
+{
+    fluid_cond_t *cond;
+    cond = (fluid_cond_t*)malloc(sizeof(fluid_cond_t));
+    fluid_cond_init(cond);
+    return cond;
+}
+
+static FLUID_INLINE void
+delete_fluid_cond(fluid_cond_t *cond)
+{
+    fluid_cond_destroy(cond);
+    free(cond);
+}
+
+/* Thread private data */
+
+typedef void** fluid_private_t;
+#define fluid_private_init(_priv)                  ((void)((_priv = (fluid_private_t) malloc(sizeof(void*))), 0))
+#define fluid_private_free(_priv)                  free((_priv))
+#define fluid_private_get(_priv)                   (*(_priv))
+#define fluid_private_set(_priv, _data)            ((void)((*(_priv) = (_data)), 0))
+
+/* Threads */
+#define FLUID_THREAD_RETURN_VALUE 0
+#define FLUID_THREAD_RETURN_TYPE int
+
+typedef void* fluid_thread_t;
+typedef void *(*fluid_thread_func_t)(void* data);
+
+#define FLUID_THREAD_ID_NULL            0                      /* A NULL "ID" value */
+
+#endif
 
 static inline int
 fluid_private_get_int(fluid_private_t priv)
@@ -344,13 +429,153 @@ fluid_private_set_int(fluid_private_t priv, int data)
 
 /* Atomic operations */
 
-#include "fluid_atomic.h"
+#include <stdbool.h>
+
+#ifndef STATIC_ASSERT
+#if __STDC_VERSION__ >= 201112L
+#define STATIC_ASSERT _Static_assert
+#else
+#define STATIC_ASSERT(expr, msg) typedef char __static_assertion_ ## __COUNTER__[(expr) ? 1 : -1]
+#endif
+#endif //STATIC_ASSERT
+
+#if FLUID_USE_THREADING
+
+#if defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4) || defined(__riscos__)
+
+typedef struct {
+    volatile int value;
+} fluid_atomic_int;
+typedef struct {
+    volatile unsigned value;
+} fluid_atomic_uint;
+typedef struct {
+    volatile float value;
+} fluid_atomic_float;
+
+#define fluid_atomic_int_add(atomic, val) __extension__ ({            \
+            STATIC_ASSERT(sizeof((atomic)->value) == sizeof(int),     \
+                          "Atomic must be the size of an int");       \
+            __sync_fetch_and_add(&(atomic)->value, (val));})
+
+#define fluid_atomic_int_get(atomic) __extension__ ({             \
+            STATIC_ASSERT(sizeof((atomic)->value) == sizeof(int), \
+                          "Atomic must be the size of an int");   \
+            __sync_synchronize();                                 \
+            (atomic)->value;})
+
+#define fluid_atomic_int_set(atomic, newval) __extension__ ({         \
+                STATIC_ASSERT(sizeof((atomic)->value) == sizeof(int), \
+                              "Atomic must be the size of an int");   \
+                (atomic)->value = (newval);                           \
+                __sync_synchronize();})
+
+#define fluid_atomic_int_inc(atomic) __extension__ ({             \
+            STATIC_ASSERT(sizeof((atomic)->value) == sizeof(int), \
+                          "Atomic must be the size of an int");   \
+            __sync_synchronize();                                 \
+            __sync_fetch_and_add(&(atomic)->value, 1);})
+
+#define fluid_atomic_int_compare_and_exchange(atomic, oldval, newval) __extension__ ({ \
+            STATIC_ASSERT(sizeof((atomic)->value) == sizeof(int),       \
+                          "Atomic must be the size of an int");         \
+            __sync_bool_compare_and_swap(&(atomic)->value, (oldval), (newval));})
+
+#define fluid_atomic_float_get(atomic) __extension__ ({   \
+  STATIC_ASSERT(sizeof((atomic)->value) == sizeof(float), \
+                "Atomic must be the size of a float");    \
+  __sync_synchronize();                                   \
+  (atomic)->value;})
+
+#define fluid_atomic_float_set(atomic, val) __extension__ ({  \
+      STATIC_ASSERT(sizeof((atomic)->value) == sizeof(float), \
+                    "Atomic must be the size of a float");    \
+      (atomic)->value = (val);                                \
+      __sync_synchronize();})
+
+#elif defined(PLATFORM_WIN)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+typedef volatile LONG fluid_atomic_int;
+typedef volatile ULONG fluid_atomic_uint;
+typedef volatile LONG fluid_atomic_float;
+
+#define fluid_atomic_int_inc(atomic) InterlockedIncrement((atomic))
+#define fluid_atomic_int_add(atomic, val) InterlockedAdd((atomic), (val))
+#define fluid_atomic_int_get(atomic) (*(LONG*)(atomic))
+#define fluid_atomic_int_set(atomic, val) InterlockedExchange((atomic), (val))
+#define fluid_atomic_int_exchange_and_add(atomic, add)  \
+    InterlockedExchangeAdd((atomic), (add))
+
+#define fluid_atomic_float_get(atomic) (*(FLOAT*)(atomic))
+
+static inline float
+fluid_atomic_float_set(fluid_atomic_float *atomic, float val)
+{
+    LONG ival = *(LONG*)&val;
+    LONG rval = InterlockedExchange(atomic, ival);
+    return *(float*)&rval;
+}
+
+#endif
+
+#else // FLUID_ENABLE_THREADING
+
+typedef volatile int32_t fluid_atomic_int;
+typedef volatile uint32_t fluid_atomic_uint;
+typedef volatile float_t fluid_atomic_float;
+
+static FLUID_INLINE int fluid_atomic_int_compare_and_exchange(volatile int *_pi, int _old, int _new)
+{
+    if (*_pi == _old)
+    {
+        *_pi = _new;
+        return TRUE;
+    }
+    else
+    {
+        return FALSE;
+    }
+}
+
+static FLUID_INLINE int fluid_atomic_int_exchange_and_add(volatile int *_pi, int _add)
+{
+    int tmp = *_pi;
+    *_pi += _add;
+    return tmp;
+}
+
+#define fluid_atomic_int_inc(atomic) ((void)((*(atomic))++))
+#define fluid_atomic_int_add(atomic, val) fluid_atomic_int_exchange_and_add(atomic, val)
+#define fluid_atomic_int_get(atomic) (*(atomic))
+#define fluid_atomic_int_set(atomic, val) ((void)(*(atomic) = (val)))
+
+static FLUID_INLINE void
+fluid_atomic_float_set(volatile float *fptr, float val)
+{
+    int32_t ival;
+    memcpy(&ival, &val, 4);
+    fluid_atomic_int_set((volatile int *)fptr, ival);
+}
+
+static FLUID_INLINE float
+fluid_atomic_float_get(volatile float *fptr)
+{
+    int32_t ival;
+    float fval;
+    ival = fluid_atomic_int_get((volatile int *)fptr);
+    memcpy(&fval, &ival, 4);
+    return fval;
+}
+
+#endif
+
 
 /* Sockets and I/O */
 
 fluid_istream_t fluid_get_stdin (void);
 fluid_ostream_t fluid_get_stdout (void);
-int fluid_istream_readline(fluid_istream_t in, fluid_ostream_t out, char* prompt, char* buf, int len);
 int fluid_ostream_printf (fluid_ostream_t out, char* format, ...);
 
 

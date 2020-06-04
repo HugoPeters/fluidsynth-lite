@@ -28,7 +28,9 @@
 #define SYNTH_REVERB_CHANNEL 0
 #define SYNTH_CHORUS_CHANNEL 1
 
-#define ENABLE_MIXER_THREADS 1
+#if FLUID_USE_THREADING
+#define ENABLE_MIXER_THREADS 
+#endif
 
 // If less than x voices, the thread overhead is larger than the gain,
 // so don't activate the thread(s).
@@ -45,7 +47,7 @@ struct _fluid_mixer_buffers_t {
     fluid_rvoice_t** finished_voices; /* List of voices who have finished */
     int finished_voice_count;
 
-    atomic_int ready;             /**< Atomic: buffers are ready for mixing */
+    fluid_atomic_int ready;             /**< Atomic: buffers are ready for mixing */
 
     int buf_blocks;             /**< Number of blocks allocated in the buffers */
 
@@ -87,14 +89,14 @@ struct _fluid_rvoice_mixer_t {
 #ifdef ENABLE_MIXER_THREADS
 //  int sleeping_threads;        /**< Atomic: number of threads currently asleep */
 //  int active_threads;          /**< Atomic: number of threads in the thread loop */
-    atomic_int threads_should_terminate; /**< Atomic: Set to TRUE when threads should terminate */
-    atomic_int current_rvoice;           /**< Atomic: for the threads to know next voice to  */
+    fluid_atomic_int threads_should_terminate; /**< Atomic: Set to TRUE when threads should terminate */
+    fluid_atomic_int current_rvoice;           /**< Atomic: for the threads to know next voice to  */
     fluid_cond_t* wakeup_threads; /**< Signalled when the threads should wake up */
     fluid_cond_mutex_t* wakeup_threads_m; /**< wakeup_threads mutex companion */
     fluid_cond_t* thread_ready; /**< Signalled from thread, when the thread has a buffer ready for mixing */
     fluid_cond_mutex_t* thread_ready_m; /**< thread_ready mutex companion */
 
-    atomic_int thread_count;            /**< Number of extra mixer threads for multi-core rendering */
+    fluid_atomic_int thread_count;            /**< Number of extra mixer threads for multi-core rendering */
     fluid_mixer_buffers_t* threads;    /**< Array of mixer threads (thread_count in length) */
 #endif
 };

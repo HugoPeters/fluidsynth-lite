@@ -24,6 +24,7 @@
 #include "fluid_defsfont.h"
 /* Todo: Get rid of that 'include' */
 #include "fluid_sys.h"
+#include <time.h>
 
 #define STMT_START do {
 #define STMT_END                                                               \
@@ -2174,7 +2175,7 @@ static int load_body(unsigned int size, SFData *sf, void *fd)
     return (OK);
 }
 
-static int read_listchunk(SFChunk *chunk, void *fd, fluid_sfloader_t* loader)
+static int read_listchunk(SFChunk *chunk, void *fd)
 {
     READCHUNK(chunk, fd);              /* read list chunk */
     if (chunkid(chunk->id) != LIST_ID) /* error if ! list chunk */

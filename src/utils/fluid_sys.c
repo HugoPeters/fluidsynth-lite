@@ -22,6 +22,9 @@
 #include <io.h>
 #elif defined(__APPLE__)
 #include "apple/timing_mach.h"
+#elif defined(__EMSCRIPTEN__)
+#include <time.h>
+#include <emscripten.h>
 #endif
 
 #include "fluid_sys.h"
@@ -43,9 +46,6 @@ struct _fluid_timer_t {
     int cont;
     int auto_destroy;
 };
-
-
-static int fluid_istream_gets(fluid_istream_t in, char* buf, int len);
 
 
 static char fluid_errbuf[512];  /* buffer for error message */
@@ -364,17 +364,37 @@ unsigned int fluid_curtime(void)
     time -= 11644473600000LL; // Milliseconds between Windows epoch (1601/01/01) and Unix
 
     return time - initial_seconds * 1000;
-#else
-    struct timespec timeval;
-
+#elif defined(__EMSCRIPTEN__)
+    
     if (initial_seconds == 0) {
-        clock_gettime(CLOCK_REALTIME, &timeval);
-        initial_seconds = timeval.tv_sec;
+        initial_seconds = (long)emscripten_get_now();
     }
 
-    clock_gettime(CLOCK_REALTIME, &timeval);
+    return (unsigned int)((long)emscripten_get_now() - initial_seconds);
+#else
+    //struct timespec timeval;
 
-    return (unsigned int)((timeval.tv_sec - initial_seconds) * 1000.0 + timeval.tv_nsec / 1000000.0);
+    //if (initial_seconds == 0) {
+    //    clock_gettime(CLOCK_REALTIME, &timeval);
+    //    initial_seconds = timeval.tv_sec;
+    //}
+
+    //clock_gettime(CLOCK_REALTIME, &timeval);
+
+    //return (unsigned int)((timeval.tv_sec - initial_seconds) * 1000.0 + timeval.tv_nsec / 1000000.0);
+
+    initial_seconds = 0;
+    timeval t;
+
+    if (initial_seconds == 0)
+    {
+        gettimeofday(&t, NULL);
+        initial_seconds = t.tv_sec;
+    }
+
+    gettimeofday(&t, NULL);
+
+    return (unsigned int)((t.tv_sec - initial_seconds) * 1000.0 + t.tv_usec / 1000.0);
 #endif
 }
 
@@ -397,12 +417,31 @@ fluid_utime (void)
     time -= 11644473600000000ULL; // Microseconds between Windows epoch (1601/01/01) and Unix
 
     return time / 1000000.0;
+#elif defined(__EMSCRIPTEN__)
+    // this is only used for profiling, we don't give a shit about precision lmao
+    return emscripten_get_now() * 1000.0;
 #else
-    struct timespec timeval;
+    //struct timespec timeval;
 
-    clock_gettime(CLOCK_REALTIME, &timeval);
+    //clock_gettime(CLOCK_REALTIME, &timeval);
 
-    return (timeval.tv_sec * 1000000.0 + timeval.tv_nsec / 1000.0);
+    //return (timeval.tv_sec * 1000000.0 + timeval.tv_nsec / 1000.0);
+
+    struct timeval t;
+    gettimeofday(&t, NULL);
+    utime = (t.tv_sec * 1000000.0 + t.tv_usec);
+#endif
+}
+
+void 
+fluid_msleep(unsigned int msec)
+{
+#if defined(WIN32)
+    Sleep(msec);
+#elif defined(__EMSCRIPTEN__)
+    emscripten_sleep(msec);
+#else
+    usleep(msec * 1000);
 #endif
 }
 
@@ -428,6 +467,9 @@ fluid_thread_self_set_prio (int prio_level)
 
 #else   /* POSIX stuff..  Nice POSIX..  Good POSIX. */
 
+
+#if FLUID_USE_THREADING
+
 void
 fluid_thread_self_set_prio (int prio_level)
 {
@@ -451,6 +493,15 @@ fluid_thread_self_set_prio (int prio_level)
         FLUID_LOG(FLUID_WARN, "Failed to set thread to high priority");
     }
 }
+
+#else
+
+void
+fluid_thread_self_set_prio(int prio_level)
+{
+}
+
+#endif // FLUID_USE_THREADING
 
 #ifdef FPE_CHECK
 
@@ -591,6 +642,8 @@ new_fluid_cond (void)
 
 #endif
 
+#if FLUID_USE_THREADING
+
 static FLUID_THREAD_RETURN_TYPE
 fluid_thread_high_prio (void *data)
 {
@@ -680,12 +733,14 @@ fluid_thread_join(fluid_thread_t* thread)
 #ifdef _WIN32
     WaitForSingleObject(*thread, INFINITE);
     CloseHandle(*thread);
-#else
+#elif FLUID_USE_THREADING
     pthread_join(*thread, NULL);
 #endif
 
     return FLUID_OK;
 }
+
+#endif
 
 
 FLUID_THREAD_RETURN_TYPE
@@ -712,11 +767,8 @@ fluid_timer_run (void *data)
            two callbacks bringing in the "absolute" time (count *
            timer->msec) */
         delay = (count * timer->msec) - (fluid_curtime() - start);
-#ifdef _WIN32
-        if (delay > 0) Sleep (delay);
-#else
-        if (delay > 0) usleep (delay * 1000);
-#endif
+        if (delay > 0)
+            fluid_msleep(delay);
     }
 
     FLUID_LOG (FLUID_DBG, "Timer thread finished");
@@ -747,6 +799,7 @@ new_fluid_timer (int msec, fluid_timer_callback_t callback, void* data,
     timer->thread = NULL;
     timer->auto_destroy = auto_destroy;
 
+#ifdef FLUID_USE_THREADING
     if (new_thread) {
         timer->thread = new_fluid_thread ("timer", fluid_timer_run, timer, high_priority
                                           ? FLUID_SYS_TIMER_HIGH_PRIO_LEVEL : 0, false);
@@ -754,7 +807,15 @@ new_fluid_timer (int msec, fluid_timer_callback_t callback, void* data,
             FLUID_FREE (timer);
             return NULL;
         }
-    } else fluid_timer_run (timer); /* Run directly, instead of as a separate thread */
+    } 
+    else
+ #endif
+    {
+        fluid_timer_run(timer); /* Run directly, instead of as a separate thread */
+
+        if (auto_destroy)
+            return NULL;
+    }
 
     return timer;
 }
@@ -777,6 +838,7 @@ delete_fluid_timer (fluid_timer_t *timer)
 int
 fluid_timer_join (fluid_timer_t *timer)
 {
+#ifdef FLUID_USE_THREADING
     int auto_destroy;
 
     if (timer->thread) {
@@ -785,6 +847,7 @@ fluid_timer_join (fluid_timer_t *timer)
 
         if (!auto_destroy) timer->thread = NULL;
     }
+#endif
 
     return FLUID_OK;
 }
@@ -817,72 +880,6 @@ fluid_get_stdout (void)
 }
 
 /**
- * Read a line from an input stream.
- * @return 0 if end-of-stream, -1 if error, non zero otherwise
- */
-int
-fluid_istream_readline (fluid_istream_t in, fluid_ostream_t out, char* prompt,
-                        char* buf, int len)
-{
-#if WITH_READLINE
-    if (in == fluid_get_stdin ()) {
-        char *line;
-
-        line = readline (prompt);
-
-        if (line == NULL)
-            return -1;
-
-        snprintf(buf, len, "%s", line);
-        buf[len - 1] = 0;
-
-        free(line);
-        return 1;
-    } else
-#endif
-    {
-        fluid_ostream_printf (out, "%s", prompt);
-        return fluid_istream_gets (in, buf, len);
-    }
-}
-
-/**
- * Reads a line from an input stream (socket).
- * @param in The input socket
- * @param buf Buffer to store data to
- * @param len Maximum length to store to buf
- * @return 1 if a line was read, 0 on end of stream, -1 on error
- */
-static int
-fluid_istream_gets (fluid_istream_t in, char* buf, int len)
-{
-    char c;
-    int n;
-
-    buf[len - 1] = 0;
-
-    while (--len > 0) {
-        n = read(in, &c, 1);
-        if (n == -1) return -1;
-
-        if (n == 0) {
-            *buf++ = 0;
-            return 0;
-        }
-
-        if (c == '\n') {
-            *buf++ = 0;
-            return 1;
-        }
-
-        /* Store all characters excluding CR */
-        if (c != '\r') *buf++ = c;
-    }
-
-    return -1;
-}
-
-/**
  * Send a printf style string with arguments to an output stream (socket).
  * @param out Output stream
  * @param format printf style format string
@@ -892,24 +889,26 @@ fluid_istream_gets (fluid_istream_t in, char* buf, int len)
 int
 fluid_ostream_printf (fluid_ostream_t out, char* format, ...)
 {
-    char buf[4096];
+    //char buf[4096];
     va_list args;
-    int len;
+    //int len;
 
     va_start (args, format);
-    len = vsnprintf (buf, 4095, format, args);
+    FLUID_PRINTF(format, args);
+    //len = vsnprintf (buf, 4095, format, args);
     va_end (args);
 
-    if (len == 0) {
-        return 0;
-    }
+    //if (len == 0) {
+    //    return 0;
+    //}
 
-    if (len < 0) {
-        printf("fluid_ostream_printf: buffer overflow");
-        return -1;
-    }
+    //if (len < 0) {
+    //    printf("fluid_ostream_printf: buffer overflow");
+    //    return -1;
+    //}
 
-    buf[4095] = 0;
+    //buf[4095] = 0;
 
-    return write (out, buf, strlen (buf));
+    //return write (out, buf, strlen (buf));
+    return 0;
 }

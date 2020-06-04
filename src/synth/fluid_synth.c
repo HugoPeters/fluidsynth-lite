@@ -447,7 +447,7 @@ static FLUID_INLINE unsigned int fluid_synth_get_ticks(fluid_synth_t* synth)
 
 static FLUID_INLINE void fluid_synth_add_ticks(fluid_synth_t* synth, int val)
 {
-    fluid_atomic_int_add(&synth->ticks_since_start, val);
+    fluid_atomic_int_add((fluid_atomic_int*)&synth->ticks_since_start, val);
 }
 
 
@@ -2403,7 +2403,9 @@ fluid_synth_nwrite_float(fluid_synth_t* synth, int len,
 {
     fluid_real_t** left_in;
     fluid_real_t** right_in;
+#if WITH_PROFILING
     double time = fluid_utime();
+#endif
     int i, num, available, count;
 #ifdef WITH_FLOAT
     int bytes;
@@ -2470,9 +2472,11 @@ fluid_synth_nwrite_float(fluid_synth_t* synth, int len,
 
     synth->cur = num;
 
+#if WITH_PROFILING
     time = fluid_utime() - time;
     cpu_load = 0.5 * (fluid_atomic_float_get(&synth->cpu_load) + time * synth->sample_rate / len / 10000.0);
     fluid_atomic_float_set (&synth->cpu_load, cpu_load);
+#endif
 
     if (!synth->eventhandler->is_threadsafe)
         fluid_synth_api_exit(synth);
@@ -2545,8 +2549,11 @@ fluid_synth_write_float(fluid_synth_t* synth, int len,
     float* right_out = (float*) rout;
     fluid_real_t** left_in;
     fluid_real_t** right_in;
+
+#if WITH_PROFILING
     double time = fluid_utime();
     float cpu_load;
+#endif
 
     fluid_profile_ref_var (prof_ref);
     if (!synth->eventhandler->is_threadsafe)
@@ -2572,9 +2579,11 @@ fluid_synth_write_float(fluid_synth_t* synth, int len,
 
     synth->cur = l;
 
+#if WITH_PROFILING
     time = fluid_utime() - time;
     cpu_load = 0.5 * (fluid_atomic_float_get(&synth->cpu_load) + time * synth->sample_rate / len / 10000.0);
     fluid_atomic_float_set (&synth->cpu_load, cpu_load);
+#endif
 
     if (!synth->eventhandler->is_threadsafe)
         fluid_synth_api_exit(synth);
@@ -2647,10 +2656,15 @@ fluid_synth_write_s16(fluid_synth_t* synth, int len,
     fluid_real_t** right_in;
     fluid_real_t left_sample;
     fluid_real_t right_sample;
+
+#if WITH_PROFILING
     double time = fluid_utime();
+    float cpu_load;
+#endif
+
     int di;
     //double prof_ref_on_block;
-    float cpu_load;
+
     fluid_profile_ref_var (prof_ref);
 
     if (!synth->eventhandler->is_threadsafe)
@@ -2696,9 +2710,11 @@ fluid_synth_write_s16(fluid_synth_t* synth, int len,
 
     fluid_profile(FLUID_PROF_WRITE, prof_ref);
 
+#if WITH_PROFILING
     time = fluid_utime() - time;
     cpu_load = 0.5 * (fluid_atomic_float_get(&synth->cpu_load) + time * synth->sample_rate / len / 10000.0);
     fluid_atomic_float_set (&synth->cpu_load, cpu_load);
+#endif
 
     if (!synth->eventhandler->is_threadsafe)
         fluid_synth_api_exit(synth);

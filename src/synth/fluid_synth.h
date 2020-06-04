@@ -122,8 +122,8 @@ struct _fluid_synth_t {
     fluid_settings_t* settings;        /**< the synthesizer settings */
     int device_id;                     /**< Device ID used for SYSEX messages */
     int polyphony;                     /**< Maximum polyphony */
-    atomic_int with_reverb;                   /**< Should the synth use the built-in reverb unit? */
-    atomic_int with_chorus;            /**< Should the synth use the built-in chorus unit? */
+    fluid_atomic_int with_reverb;                   /**< Should the synth use the built-in reverb unit? */
+    fluid_atomic_int with_chorus;            /**< Should the synth use the built-in chorus unit? */
     int verbose;                       /**< Turn verbose mode on? */
     int dump;                          /**< Dump events to stdout to hook up a user interface? */
     double sample_rate;                /**< The sample rate */
@@ -134,7 +134,7 @@ struct _fluid_synth_t {
 					  Typically equal to audio_channels. */
     int effects_channels;              /**< the number of effects channels (>= 2) */
     int state;                         /**< the synthesizer state */
-    atomic_uint ticks_since_start;    /**< the number of audio samples since the start */
+    fluid_atomic_uint ticks_since_start;    /**< the number of audio samples since the start */
     unsigned int start;                /**< the start in msec, as returned by system clock */
     fluid_overflow_prio_t overflow;    /**< parameters for overflow priority (aka voice-stealing) */
 
@@ -152,23 +152,23 @@ struct _fluid_synth_t {
     unsigned int storeid;
     fluid_rvoice_eventhandler_t* eventhandler;
 
-    atomic_float reverb_roomsize;      /**< Shadow of reverb roomsize */
-    atomic_float reverb_damping;       /**< Shadow of reverb damping */
-    atomic_float reverb_width;         /**< Shadow of reverb width */
-    atomic_float reverb_level;         /**< Shadow of reverb level */
+    fluid_atomic_float reverb_roomsize;      /**< Shadow of reverb roomsize */
+    fluid_atomic_float reverb_damping;       /**< Shadow of reverb damping */
+    fluid_atomic_float reverb_width;         /**< Shadow of reverb width */
+    fluid_atomic_float reverb_level;         /**< Shadow of reverb level */
 
     int chorus_nr;                     /**< Shadow of chorus number */
-    atomic_float chorus_level;         /**< Shadow of chorus level */
-    atomic_float chorus_speed;         /**< Shadow of chorus speed */
-    atomic_float chorus_depth;         /**< Shadow of chorus depth */
-    atomic_int chorus_type;            /**< Shadow of chorus type */
+    fluid_atomic_float chorus_level;         /**< Shadow of chorus level */
+    fluid_atomic_float chorus_speed;         /**< Shadow of chorus speed */
+    fluid_atomic_float chorus_depth;         /**< Shadow of chorus depth */
+    fluid_atomic_int chorus_type;            /**< Shadow of chorus type */
 
     int cur;                           /**< the current sample in the audio buffers to be output */
     int curmax;                        /**< current amount of samples present in the audio buffers */
     int dither_index;		     /**< current index in random dither value buffer: fluid_synth_(write_s16|dither_s16) */
 
     char outbuf[256];                  /**< buffer for message output */
-    atomic_float cpu_load;             /**< CPU load in percent (CPU time required / audio synthesized time * 100) */
+    fluid_atomic_float cpu_load;             /**< CPU load in percent (CPU time required / audio synthesized time * 100) */
 
     fluid_tuning_t*** tuning;
 

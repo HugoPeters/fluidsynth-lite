@@ -588,8 +588,8 @@ fluid_midi_file_read_event(fluid_midi_file *mf, fluid_track_t *track)
             metadata[mf->varlen] = 0;
 
             // parse the marker type
-            const char* markertype = metadata;
-            char* markervalsep = FLUID_STRCHR(metadata, '=');
+            const char* markertype = (const char*)metadata;
+            char* markervalsep = FLUID_STRCHR(markertype, '=');
             const char* markervalue = NULL;
 
             if (markervalsep) {
@@ -2040,11 +2040,7 @@ fluid_player_join(fluid_player_t *player)
     } else if (player->sample_timer) {
         /* Busy-wait loop, since there's no thread to wait for... */
         while (player->status != FLUID_PLAYER_DONE) {
-#if defined(WIN32)
-            Sleep(10);
-#else
-            usleep(10000);
-#endif
+            fluid_msleep(10);
         }
     }
     return FLUID_OK;
