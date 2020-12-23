@@ -16,11 +16,11 @@
 #endif
 
 #ifdef __EMSCRIPTEN_PTHREADS__
-#define HAVE_PTHREAD_H 1
+//#define HAVE_PTHREAD_H 1
 #endif
 
 #if HAVE_PTHREAD_H
-#define FLUID_USE_THREADING 1
+//#define FLUID_USE_THREADING 1
 #endif
 
 

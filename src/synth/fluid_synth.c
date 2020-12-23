@@ -2224,9 +2224,11 @@ fluid_synth_update_gain_LOCAL(fluid_synth_t* synth)
 
     gain = synth->gain;
 
-    for (i = 0; i < synth->polyphony; i++) {
+    for (i = 0; i < synth->polyphony; i++) 
+    {
         voice = synth->voice[i];
-        if (_PLAYING (voice)) fluid_voice_set_gain (voice, gain);
+        float gain_voice = gain * (voice->channel ? voice->channel->gain_scale : 1.f);
+        if (_PLAYING (voice)) fluid_voice_set_gain (voice, gain_voice);
     }
 }
 
@@ -2559,6 +2561,7 @@ fluid_synth_write_float(fluid_synth_t* synth, int len,
     if (!synth->eventhandler->is_threadsafe)
         fluid_synth_api_enter(synth);
 
+    //fluid_synth_update_gain_LOCAL(synth);
     fluid_rvoice_mixer_set_mix_fx(synth->eventhandler->mixer, 1);
     l = synth->cur;
     fluid_rvoice_mixer_get_bufs(synth->eventhandler->mixer, &left_in, &right_in);

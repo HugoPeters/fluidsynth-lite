@@ -1481,15 +1481,26 @@ int fluid_voice_set_param(fluid_voice_t* voice, int gen, fluid_real_t nrpn_value
 int fluid_voice_set_gain(fluid_voice_t* voice, fluid_real_t gain)
 {
     /* avoid division by zero*/
-    if (gain < 0.0000001) {
-        gain = 0.0000001;
+    if (gain < 0.0000001f) {
+        gain = 0.0000001f;
     }
 
     voice->synth_gain = gain;
-    voice->amp_left = fluid_pan(voice->pan, 1) * gain / 32768.0f;
-    voice->amp_right = fluid_pan(voice->pan, 0) * gain / 32768.0f;
-    voice->amp_reverb = voice->reverb_send * gain / 32768.0f;
-    voice->amp_chorus = voice->chorus_send * gain / 32768.0f;
+
+    //if (gain > 0.f)
+    {
+        voice->amp_left = fluid_pan(voice->pan, 1) * gain / 32768.0f;
+        voice->amp_right = fluid_pan(voice->pan, 0) * gain / 32768.0f;
+        voice->amp_reverb = voice->reverb_send * gain / 32768.0f;
+        voice->amp_chorus = voice->chorus_send * gain / 32768.0f;
+    }/*
+    else
+    {
+        voice->amp_left = 0;
+        voice->amp_right = 0;
+        voice->amp_reverb = 0;
+        voice->amp_chorus = 0;
+    }*/
 
     UPDATE_RVOICE_R1(fluid_rvoice_set_synth_gain, gain);
     UPDATE_RVOICE_BUFFERS2(fluid_rvoice_buffers_set_amp, 0, voice->amp_left);
