@@ -22,6 +22,9 @@
 #include <io.h>
 #elif defined(__APPLE__)
 #include "apple/timing_mach.h"
+#include <mach/mach_time.h>
+#include <TargetConditionals.h>
+ #include <unistd.h>
 #elif defined(__EMSCRIPTEN__)
 #include <time.h>
 #include <emscripten.h>
@@ -286,7 +289,7 @@ fluid_error()
 /**
  * Check if a file is a MIDI file.
  * @param filename Path to the file to check
- * @return TRUE if it could be a MIDI file, FALSE otherwise
+ * @return FL_TRUE if it could be a MIDI file, FL_FALSE otherwise
  *
  * The current implementation only checks for the "MThd" header in the file.
  * It is useful only to distinguish between SoundFont and MIDI files.
@@ -312,7 +315,7 @@ fluid_is_midifile(const char *filename)
 /**
  * Check if a file is a SoundFont file.
  * @param filename Path to the file to check
- * @return TRUE if it could be a SoundFont, FALSE otherwise
+ * @return FL_TRUE if it could be a SoundFont, FL_FALSE otherwise
  *
  * The current implementation only checks for the "RIFF" header in the file.
  * It is useful only to distinguish between SoundFont and MIDI files.
@@ -371,6 +374,14 @@ unsigned int fluid_curtime(void)
     }
 
     return (unsigned int)((long)emscripten_get_now() - initial_seconds);
+#elif defined(__APPLE__)
+
+    if (initial_seconds == 0)
+    {
+        initial_seconds = (long)mach_absolute_time();
+    }
+    
+    return (unsigned int)((long)mach_absolute_time() - initial_seconds);
 #else
     //struct timespec timeval;
 
@@ -384,7 +395,7 @@ unsigned int fluid_curtime(void)
     //return (unsigned int)((timeval.tv_sec - initial_seconds) * 1000.0 + timeval.tv_nsec / 1000000.0);
 
     initial_seconds = 0;
-    timeval t;
+    struct timeval t;
 
     if (initial_seconds == 0)
     {
@@ -420,6 +431,8 @@ fluid_utime (void)
 #elif defined(__EMSCRIPTEN__)
     // this is only used for profiling, we don't give a shit about precision lmao
     return emscripten_get_now() * 1000.0;
+#elif defined(__APPLE__)
+    return mach_absolute_time();
 #else
     //struct timespec timeval;
 
@@ -429,7 +442,7 @@ fluid_utime (void)
 
     struct timeval t;
     gettimeofday(&t, NULL);
-    utime = (t.tv_sec * 1000000.0 + t.tv_usec);
+    return (t.tv_sec * 1000000.0 + t.tv_usec);
 #endif
 }
 
@@ -663,7 +676,7 @@ fluid_thread_high_prio (void *data)
  * @param data User defined data to pass to func
  * @param prio_level Priority level.  If greater than 0 then high priority scheduling will
  *   be used, with the given priority level (used by pthreads only).  0 uses normal scheduling.
- * @param detach If TRUE, 'join' does not work and the thread destroys itself when finished.
+ * @param detach If FL_TRUE, 'join' does not work and the thread destroys itself when finished.
  * @return New thread pointer or NULL on error
  */
 fluid_thread_t *
@@ -795,7 +808,7 @@ new_fluid_timer (int msec, fluid_timer_callback_t callback, void* data,
     timer->msec = msec;
     timer->callback = callback;
     timer->data = data;
-    timer->cont = TRUE ;
+    timer->cont = FL_TRUE ;
     timer->thread = NULL;
     timer->auto_destroy = auto_destroy;
 

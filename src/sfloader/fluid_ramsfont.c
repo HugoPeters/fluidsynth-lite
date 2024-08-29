@@ -449,7 +449,7 @@ fluid_ramsfont_izone_set_gen (fluid_ramsfont_t* sfont, unsigned int bank,
  * @param bank Preset bank number
  * @param num Preset program number
  * @param sample Sample of the instrument zone
- * @param on TRUE to enable looping, FALSE for one shot (\a loopstart and \a loopend
+ * @param on FL_TRUE to enable looping, FL_FALSE for one shot (\a loopstart and \a loopend
  *   not used)
  * @param loopstart Loop start, in frames (counted from 0)
  * @param loopend Loop end, in frames (counted from last frame, thus is < 0)
@@ -1127,11 +1127,11 @@ fluid_sample_set_name(fluid_sample_t* sample, const char *name)
  * @param sample RAM SoundFont sample
  * @param data Buffer containing 16 bit audio sample data
  * @param nbframes Number of samples in \a data
- * @param copy_data TRUE to copy the data, FALSE to use it directly
+ * @param copy_data FL_TRUE to copy the data, FL_FALSE to use it directly
  * @param rootkey Root MIDI note of sample (0-127)
  * @return #FLUID_OK on success, #FLUID_FAILED otherwise
  *
- * WARNING: If \a copy_data is FALSE, data should have 8 unused frames at start
+ * WARNING: If \a copy_data is FL_FALSE, data should have 8 unused frames at start
  * and 8 unused frames at the end.
  */
 int

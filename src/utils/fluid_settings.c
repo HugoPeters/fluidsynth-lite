@@ -634,7 +634,7 @@ int
 fluid_settings_is_realtime(fluid_settings_t* settings, const char *name)
 {
     fluid_setting_node_t *node;
-    int isrealtime = FALSE;
+    int isrealtime = FL_FALSE;
 
     fluid_return_val_if_fail (settings != NULL, 0);
     fluid_return_val_if_fail (name != NULL, 0);
@@ -695,11 +695,11 @@ fluid_settings_setstr(fluid_settings_t* settings, const char *name, const char *
 
             if (setting->hints & FLUID_HINT_TOGGLED) {
                 if (FLUID_STRCMP (str, "yes") == 0) {
-                    setting->value = TRUE;
-                    if (setting->update) (*setting->update)(setting->data, name, TRUE);
+                    setting->value = FL_TRUE;
+                    if (setting->update) (*setting->update)(setting->data, name, FL_TRUE);
                 } else if (FLUID_STRCMP (str, "no") == 0) {
-                    setting->value = FALSE;
-                    if (setting->update) (*setting->update)(setting->data, name, FALSE);
+                    setting->value = FL_FALSE;
+                    if (setting->update) (*setting->update)(setting->data, name, FL_FALSE);
                 }
             }
         }

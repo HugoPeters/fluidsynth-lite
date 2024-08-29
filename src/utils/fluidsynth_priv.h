@@ -32,10 +32,10 @@
 
 #if defined(PLATFORM_WIN)
 #include "config_win32.h"
-#endif
-
-#if defined(PLATFORM_JS)
+#elif defined(PLATFORM_JS) || defined(PLATFORM_MACOS)
 #include "config_emscripten.h"
+#else
+#error Not implemented
 #endif
 
 #if HAVE_STRING_H
@@ -139,7 +139,7 @@ typedef float fluid_real_t;
 typedef double fluid_real_t;
 #endif
 
-#if defined(SUPPORTS_VLA) || defined(__EMSCRIPTEN__)
+#if defined(SUPPORTS_VLA)
 #  define FLUID_DECLARE_VLA(_type, _name, _len) \
      _type _name[_len]
 #else
@@ -159,10 +159,8 @@ typedef uint32_t            uint32;
 //typedef guint64            uint64;
 
 /** Boolean types  */
-#ifndef _WIN32
-#define TRUE true
-#define FALSE false
-#endif
+#define FL_TRUE true
+#define FL_FALSE false
 
 /***************************************************************
  *

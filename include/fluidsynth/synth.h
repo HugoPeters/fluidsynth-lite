@@ -53,7 +53,7 @@ extern "C" {
  */
 struct _fluid_synth_channel_info_t
 {
-  int assigned : 1;     /**< TRUE if a preset is assigned, FALSE otherwise */
+  int assigned : 1;     /**< FL_TRUE if a preset is assigned, FL_FALSE otherwise */
   /* Reserved flag bits (at the least 31) */
   int sfont_id;         /**< ID of parent SoundFont */
   int bank;             /**< MIDI bank number (0-16383) */

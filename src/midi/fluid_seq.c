@@ -96,13 +96,13 @@ static void _fluid_free_evt_queue(fluid_evt_entry** first, fluid_evt_entry** las
 fluid_sequencer_t*
 new_fluid_sequencer (void)
 {
-    return new_fluid_sequencer2 (TRUE);
+    return new_fluid_sequencer2 (FL_TRUE);
 }
 
 /**
  * Create a new sequencer object.
- * @param use_system_timer If TRUE, sequencer will advance at the rate of the
- *   system clock. If FALSE, call fluid_sequencer_process() to advance
+ * @param use_system_timer If FL_TRUE, sequencer will advance at the rate of the
+ *   system clock. If FL_FALSE, call fluid_sequencer_process() to advance
  *   the sequencer.
  * @return New sequencer instance
  * @since 1.1.0
@@ -121,7 +121,7 @@ new_fluid_sequencer2 (int use_system_timer)
     FLUID_MEMSET(seq, 0, sizeof(fluid_sequencer_t));
 
     seq->scale = 1000;	// default value
-    seq->useSystemTimer = use_system_timer ? TRUE : FALSE;
+    seq->useSystemTimer = use_system_timer ? FL_TRUE : FL_FALSE;
     seq->startMs = seq->useSystemTimer ? fluid_curtime() : 0;
     seq->clients = NULL;
     seq->clientsID = 0;
@@ -190,7 +190,7 @@ delete_fluid_sequencer (fluid_sequencer_t* seq)
 /**
  * Check if a sequencer is using the system timer or not.
  * @param seq Sequencer object
- * @return TRUE if system timer is being used, FALSE otherwise.
+ * @return FL_TRUE if system timer is being used, FL_FALSE otherwise.
  * @since 1.1.0
  */
 int
@@ -400,14 +400,14 @@ fluid_sequencer_get_client_name(fluid_sequencer_t* seq, int id)
  * Check if a client is a destination client.
  * @param seq Sequencer object
  * @param id Client ID
- * @return TRUE if client is a destination client, FALSE otherwise or if not found
+ * @return FL_TRUE if client is a destination client, FL_FALSE otherwise or if not found
  */
 int
 fluid_sequencer_client_is_dest(fluid_sequencer_t* seq, int id)
 {
     fluid_list_t *tmp;
 
-    if (seq->clients == NULL) return FALSE;
+    if (seq->clients == NULL) return FL_FALSE;
 
     tmp = seq->clients;
     while (tmp) {
@@ -418,7 +418,7 @@ fluid_sequencer_client_is_dest(fluid_sequencer_t* seq, int id)
 
         tmp = tmp->next;
     }
-    return FALSE;
+    return FL_FALSE;
 }
 
 /**
@@ -452,8 +452,8 @@ fluid_sequencer_send_now(fluid_sequencer_t* seq, fluid_event_t* evt)
  * @param seq Sequencer object
  * @param evt Event to send
  * @param time Time value in ticks (in milliseconds with the default time scale of 1000).
- * @param absolute TRUE if \a time is absolute sequencer time (time since sequencer
- *   creation), FALSE if relative to current time.
+ * @param absolute FL_TRUE if \a time is absolute sequencer time (time since sequencer
+ *   creation), FL_FALSE if relative to current time.
  * @return #FLUID_OK on success, #FLUID_FAILED otherwise
  */
 int
@@ -557,7 +557,7 @@ fluid_sequencer_set_time_scale (fluid_sequencer_t* seq, double scale)
 
         /* re-start timer */
         if (seq->useSystemTimer) {
-            seq->timer = new_fluid_timer((int)(1000/seq->scale), _fluid_seq_queue_process, (void *)seq, TRUE, FALSE, TRUE);
+            seq->timer = new_fluid_timer((int)(1000/seq->scale), _fluid_seq_queue_process, (void *)seq, FL_TRUE, FL_FALSE, FL_TRUE);
         }
     }
 }
@@ -676,7 +676,7 @@ _fluid_seq_queue_init(fluid_sequencer_t* seq, int maxEvents)
     /* start timer */
     if (seq->useSystemTimer) {
         seq->timer = new_fluid_timer((int)(1000/seq->scale), _fluid_seq_queue_process,
-                                     (void *)seq, TRUE, FALSE, TRUE);
+                                     (void *)seq, FL_TRUE, FL_FALSE, FL_TRUE);
     }
     return (0);
 }

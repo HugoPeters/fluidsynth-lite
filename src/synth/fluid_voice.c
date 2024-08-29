@@ -1399,7 +1399,7 @@ unsigned int fluid_voice_get_id(fluid_voice_t* voice)
 /**
  * Check if a voice is still playing.
  * @param voice Voice instance
- * @return TRUE if playing, FALSE otherwise
+ * @return FL_TRUE if playing, FL_FALSE otherwise
  */
 int fluid_voice_is_playing(fluid_voice_t* voice)
 {

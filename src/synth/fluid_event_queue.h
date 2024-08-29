@@ -63,7 +63,7 @@ typedef struct {
  * Tuning assignment event structure.
  */
 typedef struct {
-    char apply;                   /**< TRUE to set tuning in realtime */
+    char apply;                   /**< FL_TRUE to set tuning in realtime */
     int channel;                  /**< MIDI channel number */
     fluid_tuning_t *tuning;       /**< Tuning to assign */
 } fluid_event_set_tuning_t;
@@ -72,7 +72,7 @@ typedef struct {
  * Tuning replacement event structure.
  */
 typedef struct {
-    char apply;                       /**< TRUE if tuning change should be applied in realtime */
+    char apply;                       /**< FL_TRUE if tuning change should be applied in realtime */
     fluid_tuning_t *old_tuning;       /**< Old tuning pointer to replace */
     fluid_tuning_t *new_tuning;       /**< New tuning to assign */
 } fluid_event_repl_tuning_t;

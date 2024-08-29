@@ -104,11 +104,11 @@ fluid_tuning_ref (fluid_tuning_t *tuning)
     fluid_atomic_int_inc (&tuning->refcount);
 }
 
-/* Unref a tuning object, when it reaches 0 it is deleted, returns TRUE if deleted */
+/* Unref a tuning object, when it reaches 0 it is deleted, returns FL_TRUE if deleted */
 int
 fluid_tuning_unref (fluid_tuning_t *tuning, int count)
 {
-    fluid_return_val_if_fail (tuning != NULL, FALSE);
+    fluid_return_val_if_fail (tuning != NULL, FL_FALSE);
 
     /* Add and compare are separate, but that is OK, since refcount will only
      * reach 0 when there are no references and therefore no possibility of
@@ -119,8 +119,8 @@ fluid_tuning_unref (fluid_tuning_t *tuning, int count)
     /* Delete when refcount reaches 0 */
     if (!fluid_atomic_int_get(&tuning->refcount)) {
         delete_fluid_tuning (tuning);
-        return TRUE;
-    } else return FALSE;
+        return FL_TRUE;
+    } else return FL_FALSE;
 }
 
 void fluid_tuning_set_name(fluid_tuning_t* tuning, char* name)

@@ -229,7 +229,7 @@ int fluid_thread_join(fluid_thread_t* thread);
 static FLUID_INLINE void
 fluid_win32_mutex_init(PHANDLE m)
 {
-    *m = CreateMutex(NULL, TRUE, NULL);
+    *m = CreateMutex(NULL, FL_TRUE, NULL);
 }
 
 /* Regular mutex */
@@ -531,11 +531,11 @@ static FLUID_INLINE int fluid_atomic_int_compare_and_exchange(volatile int *_pi,
     if (*_pi == _old)
     {
         *_pi = _new;
-        return TRUE;
+        return FL_TRUE;
     }
     else
     {
-        return FALSE;
+        return FL_FALSE;
     }
 }
 

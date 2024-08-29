@@ -67,7 +67,7 @@ struct _fluid_midi_router_rule_t {
     int pending_events;                      /* In case of noteon: How many keys are still down? */
     char keys_cc[128];                       /* Flags, whether a key is down / controller is set (sustain) */
     fluid_midi_router_rule_t* next;          /* next entry */
-    int waiting;                             /* Set to TRUE when rule has been deactivated but there are still pending_events */
+    int waiting;                             /* Set to FL_TRUE when rule has been deactivated but there are still pending_events */
 };
 
 
@@ -200,7 +200,7 @@ fluid_midi_router_set_default_rules (fluid_midi_router_t *router)
                 rule->next = del_rules[i];
                 del_rules[i] = rule;
             } else {
-                rule->waiting = TRUE;          /* Pending events, mark as waiting */
+                rule->waiting = FL_TRUE;          /* Pending events, mark as waiting */
                 prev_rule = rule;
             }
         }
@@ -260,7 +260,7 @@ fluid_midi_router_clear_rules (fluid_midi_router_t *router)
                 rule->next = del_rules[i];
                 del_rules[i] = rule;
             } else {
-                rule->waiting = TRUE;           /* Pending events, mark as waiting */
+                rule->waiting = FL_TRUE;           /* Pending events, mark as waiting */
                 prev_rule = rule;
             }
         }

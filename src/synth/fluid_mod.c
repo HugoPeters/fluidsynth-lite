@@ -421,7 +421,7 @@ fluid_mod_delete (fluid_mod_t *mod)
  * Checks if two modulators are identical in sources, flags and destination.
  * @param mod1 First modulator
  * @param mod2 Second modulator
- * @return TRUE if identical, FALSE otherwise
+ * @return FL_TRUE if identical, FL_FALSE otherwise
  *
  * SF2.01 section 9.5.1 page 69, 'bullet' 3 defines 'identical'.
  */

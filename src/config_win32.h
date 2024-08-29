@@ -44,4 +44,6 @@
 #define inline __inline
 #endif
 
+#define SUPPORTS_VLA 1
+
 typedef int socklen_t;

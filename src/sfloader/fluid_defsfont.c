@@ -2073,7 +2073,7 @@ SFData *sfload_file(const char* filename)
     SFData *sf = NULL;
     void *fd = NULL;
     int fsize = 0;
-    int err = FALSE;
+    int err = FL_FALSE;
 
     if (!(fd = g_callback_open(filename))) {
         FLUID_LOG(FLUID_ERR, _("Unable to open file"));
@@ -2083,7 +2083,7 @@ SFData *sfload_file(const char* filename)
     if (!(sf = FLUID_NEW(SFData))) {
         FLUID_LOG(FLUID_ERR, "Out of memory");
         g_callback_close(fd);
-        err = TRUE;
+        err = FL_TRUE;
     }
 
     if (!err) {
@@ -2094,18 +2094,18 @@ SFData *sfload_file(const char* filename)
 
     /* get size of file */
     if (!err && g_callback_seek(fd, 0L, SEEK_END) == -1) { /* seek to end of file */
-        err = TRUE;
+        err = FL_TRUE;
         FLUID_LOG(FLUID_ERR, _("Seek to end of file failed"));
     }
     if (!err && (fsize = g_callback_tell(fd)) == -1) { /* position = size */
-        err = TRUE;
+        err = FL_TRUE;
         FLUID_LOG(FLUID_ERR, _("Get end of file position failed"));
     }
     if (!err)
         g_callback_rewind(fd);
 
     if (!err && !load_body(fsize, sf, fd))
-        err = TRUE; /* load the sfont */
+        err = FL_TRUE; /* load the sfont */
 
     if (err) {
         if (sf)
@@ -2576,8 +2576,8 @@ static int load_pgen(int size, SFData *sf, void *fd)
 
     p = sf->preset;
     while (p) { /* traverse through all presets */
-        gzone = FALSE;
-        discarded = FALSE;
+        gzone = FL_FALSE;
+        discarded = FL_FALSE;
         p2 = ((SFPreset *)(p->data))->zone;
         if (p2)
             hz = &p2;
@@ -2587,8 +2587,8 @@ static int load_pgen(int size, SFData *sf, void *fd)
             p3 = z->gen;
             while (p3) { /* load zone's generators */
                 dup = NULL;
-                skip = FALSE;
-                drop = FALSE;
+                skip = FL_FALSE;
+                drop = FL_FALSE;
                 if ((size -= SFGENSIZE) < 0)
                     return (gerr(ErrCorr, _("Preset generator chunk size mismatch")));
 
@@ -2600,14 +2600,14 @@ static int load_pgen(int size, SFData *sf, void *fd)
                         READB(genval.range.lo, fd);
                         READB(genval.range.hi, fd);
                     } else
-                        skip = TRUE;
+                        skip = FL_TRUE;
                 } else if (genid == Gen_VelRange) { /* only KeyRange precedes */
                     if (level <= 1) {
                         level = 2;
                         READB(genval.range.lo, fd);
                         READB(genval.range.hi, fd);
                     } else
-                        skip = TRUE;
+                        skip = FL_TRUE;
                 } else if (genid == Gen_Instrument) { /* inst is last gen */
                     level = 3;
                     READW(genval.uword, fd);
@@ -2620,7 +2620,7 @@ static int load_pgen(int size, SFData *sf, void *fd)
                         READW(genval.sword, fd);
                         dup = gen_inlist(genid, z->gen);
                     } else
-                        skip = TRUE;
+                        skip = FL_TRUE;
                 }
 
                 if (!skip) {
@@ -2630,12 +2630,12 @@ static int load_pgen(int size, SFData *sf, void *fd)
                         g->id = genid;
                     } else {
                         g = (SFGen *)(dup->data); /* ptr to orig gen */
-                        drop = TRUE;
+                        drop = FL_TRUE;
                     }
                     g->amount = genval;
                 } else { /* Skip this generator */
-                    discarded = TRUE;
-                    drop = TRUE;
+                    discarded = FL_TRUE;
+                    drop = FL_TRUE;
                     FSKIPW(fd);
                 }
 
@@ -2650,7 +2650,7 @@ static int load_pgen(int size, SFData *sf, void *fd)
                 SLADVREM(z->gen, p3); /* zone has inst? */
             else {                  /* congratulations its a global zone */
                 if (!gzone) {         /* Prior global zones? */
-                    gzone = TRUE;
+                    gzone = FL_TRUE;
 
                     /* if global zone is not 1st zone, relocate */
                     if (*hz != p2) {
@@ -2671,7 +2671,7 @@ static int load_pgen(int size, SFData *sf, void *fd)
             }
 
             while (p3) { /* Kill any zones following an instrument */
-                discarded = TRUE;
+                discarded = FL_TRUE;
                 if ((size -= SFGENSIZE) < 0)
                     return (gerr(ErrCorr, _("Preset generator chunk size mismatch")));
                 FSKIP(SFGENSIZE, fd);
@@ -2881,8 +2881,8 @@ static int load_igen(int size, SFData *sf, void* fd)
 
     p = sf->inst;
     while (p) { /* traverse through all instruments */
-        gzone = FALSE;
-        discarded = FALSE;
+        gzone = FL_FALSE;
+        discarded = FL_FALSE;
         p2 = ((SFInst *)(p->data))->zone;
         if (p2)
             hz = &p2;
@@ -2892,8 +2892,8 @@ static int load_igen(int size, SFData *sf, void* fd)
             p3 = z->gen;
             while (p3) { /* load zone's generators */
                 dup = NULL;
-                skip = FALSE;
-                drop = FALSE;
+                skip = FL_FALSE;
+                drop = FL_FALSE;
                 if ((size -= SFGENSIZE) < 0)
                     return (gerr(ErrCorr, _("IGEN chunk size mismatch")));
 
@@ -2905,14 +2905,14 @@ static int load_igen(int size, SFData *sf, void* fd)
                         READB(genval.range.lo, fd);
                         READB(genval.range.hi, fd);
                     } else
-                        skip = TRUE;
+                        skip = FL_TRUE;
                 } else if (genid == Gen_VelRange) { /* only KeyRange precedes */
                     if (level <= 1) {
                         level = 2;
                         READB(genval.range.lo, fd);
                         READB(genval.range.hi, fd);
                     } else
-                        skip = TRUE;
+                        skip = FL_TRUE;
                 } else if (genid == Gen_SampleId) { /* sample is last gen */
                     level = 3;
                     READW(genval.uword, fd);
@@ -2925,7 +2925,7 @@ static int load_igen(int size, SFData *sf, void* fd)
                         READW(genval.sword, fd);
                         dup = gen_inlist(genid, z->gen);
                     } else
-                        skip = TRUE;
+                        skip = FL_TRUE;
                 }
 
                 if (!skip) {
@@ -2935,12 +2935,12 @@ static int load_igen(int size, SFData *sf, void* fd)
                         g->id = genid;
                     } else {
                         g = (SFGen *)(dup->data);
-                        drop = TRUE;
+                        drop = FL_TRUE;
                     }
                     g->amount = genval;
                 } else { /* skip this generator */
-                    discarded = TRUE;
-                    drop = TRUE;
+                    discarded = FL_TRUE;
+                    drop = FL_TRUE;
                     FSKIPW(fd);
                 }
 
@@ -2955,7 +2955,7 @@ static int load_igen(int size, SFData *sf, void* fd)
                 SLADVREM(z->gen, p3); /* zone has sample? */
             else {                  /* its a global zone */
                 if (!gzone) {
-                    gzone = TRUE;
+                    gzone = FL_TRUE;
 
                     /* if global zone is not 1st zone, relocate */
                     if (*hz != p2) {
@@ -2976,7 +2976,7 @@ static int load_igen(int size, SFData *sf, void* fd)
             }
 
             while (p3) { /* Kill any zones following a sample */
-                discarded = TRUE;
+                discarded = FL_TRUE;
                 if ((size -= SFGENSIZE) < 0)
                     return (gerr(ErrCorr, _("Instrument generator chunk size mismatch")));
                 FSKIP(SFGENSIZE, fd);
@@ -3303,7 +3303,7 @@ int gen_valid(int gen)   /* is generator id valid? */
     int i = 0;
 
     if (gen > Gen_MaxValid)
-        return (FALSE);
+        return (FL_FALSE);
     while (badgen[i] && badgen[i] != gen)
         i++;
     return (badgen[i] == 0);
@@ -3315,7 +3315,7 @@ int gen_validp(int gen)   /* is preset generator valid? */
     int i = 0;
 
     if (!gen_valid(gen))
-        return (FALSE);
+        return (FL_FALSE);
     while (badpgen[i] && badpgen[i] != (unsigned short)gen)
         i++;
     return (badpgen[i] == 0);

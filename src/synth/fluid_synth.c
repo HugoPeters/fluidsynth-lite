@@ -1121,7 +1121,7 @@ fluid_synth_cc_LOCAL (fluid_synth_t* synth, int channum, int num)
 
                 if (nrpn_select < GEN_LAST) {
                     float val = fluid_gen_scale_nrpn (nrpn_select, data);
-                    fluid_synth_set_gen_LOCAL (synth, channum, nrpn_select, val, FALSE);
+                    fluid_synth_set_gen_LOCAL (synth, channum, nrpn_select, val, FL_FALSE);
                 }
 
                 chan->nrpn_select = 0;  /* Reset to 0 */
@@ -1135,17 +1135,17 @@ fluid_synth_cc_LOCAL (fluid_synth_t* synth, int channum, int num)
                 break;
             case RPN_CHANNEL_FINE_TUNE:   /* Fine tune is 14 bit over 1 semitone (+/- 50 cents, 8192 = center) */
                 fluid_synth_set_gen_LOCAL (synth, channum, GEN_FINETUNE,
-                                           (data - 8192) / 8192.0 * 50.0, FALSE);
+                                           (data - 8192) / 8192.0 * 50.0, FL_FALSE);
                 break;
             case RPN_CHANNEL_COARSE_TUNE: /* Coarse tune is 7 bit and in semitones (64 is center) */
                 fluid_synth_set_gen_LOCAL (synth, channum, GEN_COARSETUNE,
-                                           value - 64, FALSE);
+                                           value - 64, FL_FALSE);
                 break;
             case RPN_TUNING_PROGRAM_CHANGE:
                 fluid_channel_set_tuning_prog (chan, value);
                 fluid_synth_activate_tuning (synth, channum,
                                              fluid_channel_get_tuning_bank (chan),
-                                             value, TRUE);
+                                             value, FL_TRUE);
                 break;
             case RPN_TUNING_BANK_SELECT:
                 fluid_channel_set_tuning_bank (chan, value);
@@ -1230,8 +1230,8 @@ fluid_synth_update_device_id (fluid_synth_t *synth, char *name, int value)
  *   amount of data written to response buffer (if FLUID_FAILED is returned and
  *   this value is non-zero, it indicates the response buffer is too small)
  * @param handled Optional location to store boolean value if message was
- *   recognized and handled or not (set to TRUE if it was handled)
- * @param dryrun TRUE to just do a dry run but not actually execute the SYSEX
+ *   recognized and handled or not (set to FL_TRUE if it was handled)
+ * @param dryrun FL_TRUE to just do a dry run but not actually execute the SYSEX
  *   command (useful for checking if a SYSEX message would be handled)
  * @return FLUID_OK on success, FLUID_FAILED otherwise
  * @since 1.1.0
@@ -1247,7 +1247,7 @@ fluid_synth_sysex(fluid_synth_t *synth, const char *data, int len,
 {
     int avail_response = 0;
 
-    if (handled) *handled = FALSE;
+    if (handled) *handled = FL_FALSE;
 
     if (response_len) {
         avail_response = *response_len;
@@ -1315,7 +1315,7 @@ fluid_synth_sysex_midi_tuning (fluid_synth_t *synth, const char *data, int len,
         }
 
         if (dryrun) {
-            if (handled) *handled = TRUE;
+            if (handled) *handled = FL_TRUE;
             return FLUID_OK;
         }
 
@@ -1367,7 +1367,7 @@ fluid_synth_sysex_midi_tuning (fluid_synth_t *synth, const char *data, int len,
 
         *resptr++ = chksum & 0x7F;
 
-        if (handled) *handled = TRUE;
+        if (handled) *handled = FL_TRUE;
         break;
     case MIDI_SYSEX_TUNING_NOTE_TUNE:
     case MIDI_SYSEX_TUNING_NOTE_TUNE_BANK:
@@ -1385,7 +1385,7 @@ fluid_synth_sysex_midi_tuning (fluid_synth_t *synth, const char *data, int len,
         }
 
         if (dryrun) {
-            if (handled) *handled = TRUE;
+            if (handled) *handled = FL_TRUE;
             return FLUID_OK;
         }
 
@@ -1419,7 +1419,7 @@ fluid_synth_sysex_midi_tuning (fluid_synth_t *synth, const char *data, int len,
                 return FLUID_FAILED;
         }
 
-        if (handled) *handled = TRUE;
+        if (handled) *handled = FL_TRUE;
         break;
     case MIDI_SYSEX_TUNING_OCTAVE_TUNE_1BYTE:
     case MIDI_SYSEX_TUNING_OCTAVE_TUNE_2BYTE:
@@ -1431,7 +1431,7 @@ fluid_synth_sysex_midi_tuning (fluid_synth_t *synth, const char *data, int len,
             return FLUID_OK;
 
         if (dryrun) {
-            if (handled) *handled = TRUE;
+            if (handled) *handled = FL_TRUE;
             return FLUID_OK;
         }
 
@@ -1463,7 +1463,7 @@ fluid_synth_sysex_midi_tuning (fluid_synth_t *synth, const char *data, int len,
             }
         }
 
-        if (handled) *handled = TRUE;
+        if (handled) *handled = FL_TRUE;
         break;
     }
 
@@ -3103,7 +3103,7 @@ fluid_synth_add_sfloader(fluid_synth_t* synth, fluid_sfloader_t* loader)
  *
  * @param synth SoundFont instance
  * @param filename File to load
- * @param reset_presets TRUE to re-assign presets for all MIDI channels
+ * @param reset_presets FL_TRUE to re-assign presets for all MIDI channels
  * @return SoundFont ID on success, FLUID_FAILED on error
  */
 int
@@ -3174,7 +3174,7 @@ new_fluid_sfont_info (fluid_synth_t *synth, fluid_sfont_t *sfont)
  * Unload a SoundFont.
  * @param synth SoundFont instance
  * @param id ID of SoundFont to unload
- * @param reset_presets TRUE to re-assign presets for all MIDI channels
+ * @param reset_presets FL_TRUE to re-assign presets for all MIDI channels
  * @return FLUID_OK on success, FLUID_FAILED on error
  */
 int
@@ -3235,7 +3235,7 @@ fluid_synth_sfont_unref (fluid_synth_t *synth, fluid_sfont_t *sfont)
             FLUID_FREE (sfont_info);
             FLUID_LOG (FLUID_DBG, "Unloaded SoundFont");
         } /* spin off a timer thread to unload the sfont later (SoundFont loader blocked unload) */
-        else new_fluid_timer (100, fluid_synth_sfunload_callback, sfont_info, TRUE, TRUE, FALSE);
+        else new_fluid_timer (100, fluid_synth_sfunload_callback, sfont_info, FL_TRUE, FL_TRUE, FL_FALSE);
     }
 }
 
@@ -3249,8 +3249,8 @@ fluid_synth_sfunload_callback(void* data, unsigned int msec)
     if (delete_fluid_sfont (sfont_info->sfont) == 0) {
         FLUID_FREE (sfont_info);
         FLUID_LOG (FLUID_DBG, "Unloaded SoundFont");
-        return FALSE;
-    } else return TRUE;
+        return FL_FALSE;
+    } else return FL_TRUE;
 }
 
 /**
@@ -3286,7 +3286,7 @@ fluid_synth_sfreload(fluid_synth_t* synth, unsigned int id)
     /* keep a copy of the SoundFont's filename */
     FLUID_STRCPY (filename, fluid_sfont_get_name (old_sfont_info->sfont));
 
-    if (fluid_synth_sfunload (synth, id, FALSE) != FLUID_OK)
+    if (fluid_synth_sfunload (synth, id, FL_FALSE) != FLUID_OK)
         FLUID_API_RETURN(FLUID_FAILED);
 
     /* MT Note: SoundFont loader list will not change */
@@ -3522,7 +3522,7 @@ fluid_synth_get_channel_info (fluid_synth_t *synth, int chan,
     char *name;
 
     if (info) {
-        info->assigned = FALSE;
+        info->assigned = FL_FALSE;
         info->name[0] = '\0';
     }
 
@@ -3533,7 +3533,7 @@ fluid_synth_get_channel_info (fluid_synth_t *synth, int chan,
     preset = channel->preset;
 
     if (preset) {
-        info->assigned = TRUE;
+        info->assigned = FL_TRUE;
         name = fluid_preset_get_name (preset);
 
         if (name) {
@@ -3545,7 +3545,7 @@ fluid_synth_get_channel_info (fluid_synth_t *synth, int chan,
         info->bank = fluid_preset_get_banknum (preset);
         info->program = fluid_preset_get_num (preset);
     } else {
-        info->assigned = FALSE;
+        info->assigned = FL_FALSE;
         fluid_channel_get_sfont_bank_prog (channel, &info->sfont_id, &info->bank, &info->program);
         info->name[0] = '\0';
     }
@@ -3590,7 +3590,7 @@ fluid_synth_get_voicelist(fluid_synth_t* synth, fluid_voice_t* buf[], int bufsiz
 /**
  * Enable or disable reverb effect.
  * @param synth FluidSynth instance
- * @param on TRUE to enable reverb, FALSE to disable
+ * @param on FL_TRUE to enable reverb, FL_FALSE to disable
  */
 void
 fluid_synth_set_reverb_on(fluid_synth_t* synth, int on)
@@ -3757,7 +3757,7 @@ fluid_synth_get_reverb_width(fluid_synth_t* synth)
 /**
  * Enable or disable chorus effect.
  * @param synth FluidSynth instance
- * @param on TRUE to enable chorus, FALSE to disable
+ * @param on FL_TRUE to enable chorus, FL_FALSE to disable
  */
 void
 fluid_synth_set_chorus_on(fluid_synth_t* synth, int on)
@@ -4101,7 +4101,7 @@ fluid_synth_replace_tuning_LOCK (fluid_synth_t* synth, fluid_tuning_t *tuning,
     if (old_tuning) {
         if (!fluid_tuning_unref (old_tuning, 1)) {   /* -- unref old tuning */
             /* Replace old tuning if present */
-            fluid_synth_replace_tuning_LOCAL (synth, old_tuning, tuning, apply, FALSE);
+            fluid_synth_replace_tuning_LOCAL (synth, old_tuning, tuning, apply, FL_FALSE);
         }
     }
 
@@ -4175,7 +4175,7 @@ int
 fluid_synth_create_key_tuning(fluid_synth_t* synth, int bank, int prog,
                               const char* name, const double* pitch)
 {
-    return fluid_synth_activate_key_tuning (synth, bank, prog, name, pitch, FALSE);
+    return fluid_synth_activate_key_tuning (synth, bank, prog, name, pitch, FL_FALSE);
 }
 
 /**
@@ -4187,8 +4187,8 @@ fluid_synth_create_key_tuning(fluid_synth_t* synth, int bank, int prog,
  * @param pitch Array of pitch values (length of 128, each value is number of
  *   cents, for example normally note 0 is 0.0, 1 is 100.0, 60 is 6000.0, etc).
  *   Pass NULL to create a well-tempered (normal) scale.
- * @param apply TRUE to apply new tuning in realtime to existing notes which
- *   are using the replaced tuning (if any), FALSE otherwise
+ * @param apply FL_TRUE to apply new tuning in realtime to existing notes which
+ *   are using the replaced tuning (if any), FL_FALSE otherwise
  * @return FLUID_OK on success, FLUID_FAILED otherwise
  * @since 1.1.0
  */
@@ -4235,7 +4235,7 @@ int
 fluid_synth_create_octave_tuning(fluid_synth_t* synth, int bank, int prog,
                                  const char* name, const double* pitch)
 {
-    return fluid_synth_activate_octave_tuning (synth, bank, prog, name, pitch, FALSE);
+    return fluid_synth_activate_octave_tuning (synth, bank, prog, name, pitch, FL_FALSE);
 }
 
 /**
@@ -4247,8 +4247,8 @@ fluid_synth_create_octave_tuning(fluid_synth_t* synth, int bank, int prog,
  * @param pitch Array of pitch values (length of 12 for each note of an octave
  *   starting at note C, values are number of offset cents to add to the normal
  *   tuning amount)
- * @param apply TRUE to apply new tuning in realtime to existing notes which
- *   are using the replaced tuning (if any), FALSE otherwise
+ * @param apply FL_TRUE to apply new tuning in realtime to existing notes which
+ *   are using the replaced tuning (if any), FL_FALSE otherwise
  * @return FLUID_OK on success, FLUID_FAILED otherwise
  * @since 1.1.0
  */
@@ -4286,8 +4286,8 @@ fluid_synth_activate_octave_tuning(fluid_synth_t* synth, int bank, int prog,
  * @param key Array of MIDI key numbers (length of 'len', values 0-127)
  * @param pitch Array of pitch values (length of 'len', values are number of
  *   cents from MIDI note 0)
- * @param apply TRUE to apply tuning change in realtime to existing notes using
- *   the specified tuning, FALSE otherwise
+ * @param apply FL_TRUE to apply tuning change in realtime to existing notes using
+ *   the specified tuning, FL_FALSE otherwise
  * @return FLUID_OK on success, FLUID_FAILED otherwise
  *
  * NOTE: Prior to version 1.1.0 it was an error to specify a tuning that didn't
@@ -4347,7 +4347,7 @@ fluid_synth_tune_notes(fluid_synth_t* synth, int bank, int prog,
 int
 fluid_synth_select_tuning(fluid_synth_t* synth, int chan, int bank, int prog)
 {
-    return fluid_synth_activate_tuning (synth, chan, bank, prog, FALSE);
+    return fluid_synth_activate_tuning (synth, chan, bank, prog, FL_FALSE);
 }
 
 /**
@@ -4356,7 +4356,7 @@ fluid_synth_select_tuning(fluid_synth_t* synth, int chan, int bank, int prog)
  * @param chan MIDI channel number (0 to MIDI channel count - 1)
  * @param bank Tuning bank number (0-127), not related to MIDI instrument bank
  * @param prog Tuning preset number (0-127), not related to MIDI instrument program
- * @param apply TRUE to apply tuning change to active notes, FALSE otherwise
+ * @param apply FL_TRUE to apply tuning change to active notes, FL_FALSE otherwise
  * @return FLUID_OK on success, FLUID_FAILED otherwise
  * @since 1.1.0
  *
@@ -4385,7 +4385,7 @@ fluid_synth_activate_tuning(fluid_synth_t* synth, int chan, int bank, int prog,
      * it can be replaced later, if any changes are made. */
     if (!tuning) {
         tuning = new_fluid_tuning ("Unnamed", bank, prog);
-        if (tuning) fluid_synth_replace_tuning_LOCK (synth, tuning, bank, prog, FALSE);
+        if (tuning) fluid_synth_replace_tuning_LOCK (synth, tuning, bank, prog, FL_FALSE);
     }
 
     if (tuning) fluid_tuning_ref (tuning);  /* ++ ref for outside of lock */
@@ -4438,14 +4438,14 @@ fluid_synth_set_tuning_LOCAL (fluid_synth_t *synth, int chan,
 int
 fluid_synth_reset_tuning(fluid_synth_t* synth, int chan)
 {
-    return fluid_synth_deactivate_tuning (synth, chan, FALSE);
+    return fluid_synth_deactivate_tuning (synth, chan, FL_FALSE);
 }
 
 /**
  * Clear tuning scale on a MIDI channel (use default equal tempered scale).
  * @param synth FluidSynth instance
  * @param chan MIDI channel number (0 to MIDI channel count - 1)
- * @param apply TRUE to apply tuning change to active notes, FALSE otherwise
+ * @param apply FL_TRUE to apply tuning change to active notes, FL_FALSE otherwise
  * @return FLUID_OK on success, FLUID_FAILED otherwise
  * @since 1.1.0
  */
@@ -4686,7 +4686,7 @@ fluid_synth_set_gen(fluid_synth_t* synth, int chan, int param, float value)
     fluid_return_val_if_fail (param >= 0 && param < GEN_LAST, FLUID_FAILED);
     FLUID_API_ENTRY_CHAN(FLUID_FAILED);
 
-    fluid_synth_set_gen_LOCAL (synth, chan, param, value, FALSE);
+    fluid_synth_set_gen_LOCAL (synth, chan, param, value, FL_FALSE);
 
     FLUID_API_RETURN(FLUID_OK);
 }
@@ -4817,7 +4817,7 @@ fluid_synth_handle_midi_event(void* data, fluid_midi_event_t* event)
     case MIDI_SYSTEM_RESET:
         return fluid_synth_system_reset(synth);
     case MIDI_SYSEX:
-        return fluid_synth_sysex (synth, event->paramptr, event->param1, NULL, NULL, NULL, FALSE);
+        return fluid_synth_sysex (synth, event->paramptr, event->param1, NULL, NULL, NULL, FL_FALSE);
     }
     return FLUID_FAILED;
 }

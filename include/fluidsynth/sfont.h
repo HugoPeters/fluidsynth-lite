@@ -243,10 +243,10 @@ struct _fluid_sample_t
   int origpitch;                /**< Original pitch (MIDI note number, 0-127) */
   int pitchadj;                 /**< Fine pitch adjustment (+/- 99 cents) */
   int sampletype;               /**< Values: #FLUID_SAMPLETYPE_MONO, FLUID_SAMPLETYPE_RIGHT, FLUID_SAMPLETYPE_LEFT, FLUID_SAMPLETYPE_ROM */
-  int valid;                    /**< Should be TRUE if sample data is valid, FALSE otherwise (in which case it will not be synthesized) */
+  int valid;                    /**< Should be FL_TRUE if sample data is valid, FL_FALSE otherwise (in which case it will not be synthesized) */
   short* data;                  /**< Pointer to the sample's data */
 
-  int amplitude_that_reaches_noise_floor_is_valid;      /**< Indicates if \a amplitude_that_reaches_noise_floor is valid (TRUE), set to FALSE initially to calculate. */
+  int amplitude_that_reaches_noise_floor_is_valid;      /**< Indicates if \a amplitude_that_reaches_noise_floor is valid (FL_TRUE), set to FL_FALSE initially to calculate. */
   double amplitude_that_reaches_noise_floor;            /**< The amplitude at which the sample's loop will be below the noise floor.  For voice off optimization, calculated automatically. */
 
   unsigned int refcount;        /**< Count of voices using this sample (use #fluid_sample_refcount to access this field) */

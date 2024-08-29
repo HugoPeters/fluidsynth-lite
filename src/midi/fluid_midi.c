@@ -68,7 +68,7 @@ new_fluid_midi_file(const char* buffer, size_t length)
     mf->buffer = buffer;
     mf->buf_len = length;
     mf->buf_pos = 0;
-    mf->eof = FALSE;
+    mf->eof = FL_FALSE;
 
     if (fluid_midi_file_read_mthd(mf) != FLUID_OK) {
         FLUID_FREE(mf);
@@ -139,7 +139,7 @@ fluid_midi_file_getc (fluid_midi_file *mf)
         mf->c = -1;
     } else {
         if (mf->buf_pos >= mf->buf_len) {
-            mf->eof = TRUE;
+            mf->eof = FL_TRUE;
             return FLUID_FAILED;
         }
         c = mf->buffer[mf->buf_pos++];
@@ -168,7 +168,7 @@ fluid_midi_file_read(fluid_midi_file *mf, void *buf, int len)
     int num = len < mf->buf_len - mf->buf_pos
               ? len : mf->buf_len - mf->buf_pos;
     if (num != len) {
-        mf->eof = TRUE;
+        mf->eof = FL_TRUE;
     }
     if (num < 0) {
         num = 0;
@@ -202,7 +202,7 @@ fluid_midi_file_skip (fluid_midi_file *mf, int skip)
     }
     /* Clear the EOF flag, even if moved past the end of the file (this is
      * consistent with the behaviour of fseek). */
-    mf->eof = FALSE;
+    mf->eof = FL_FALSE;
     mf->buf_pos = new_pos;
     return FLUID_OK;
 }
@@ -214,9 +214,9 @@ int fluid_midi_file_eof(fluid_midi_file* mf)
 {
     /* Note: This does not simply test whether the file read pointer is past
      * the end of the file. It mimics the behaviour of feof by actually
-     * testing the stateful EOF condition, which is set to TRUE if getc or
+     * testing the stateful EOF condition, which is set to FL_TRUE if getc or
      * fread have attempted to read past the end (but not if they have
-     * precisely reached the end), but reset to FALSE upon a successful seek.
+     * precisely reached the end), but reset to FL_FALSE upon a successful seek.
      */
     return mf->eof;
 }
@@ -519,7 +519,7 @@ fluid_midi_file_read_event(fluid_midi_file *mf, fluid_track_t *track)
                 size--;
 
             /* Add SYSEX event and indicate that its dynamically allocated and should be freed with event */
-            fluid_midi_event_set_sysex(evt, metadata, size, TRUE);
+            fluid_midi_event_set_sysex(evt, metadata, size, FL_TRUE);
             fluid_track_add_event(track, evt);
             mf->dtime = 0;
         }
@@ -1097,7 +1097,7 @@ fluid_midi_event_set_pitch(fluid_midi_event_t *evt, int val)
  * @param evt MIDI event structure
  * @param data Pointer to SYSEX data
  * @param size Size of SYSEX data
- * @param dynamic TRUE if the SYSEX data has been dynamically allocated and
+ * @param dynamic FL_TRUE if the SYSEX data has been dynamically allocated and
  *   should be freed when the event is freed (only applies if event gets destroyed
  *   with delete_fluid_midi_event())
  * @return Always returns #FLUID_OK
@@ -1932,7 +1932,7 @@ fluid_player_play(fluid_player_t *player)
 
     if (player->use_system_timer) {
         player->system_timer = new_fluid_timer((int) player->deltatime,
-                                               fluid_player_callback, (void *) player, TRUE, FALSE, TRUE);
+                                               fluid_player_callback, (void *) player, FL_TRUE, FL_FALSE, FL_TRUE);
         if (player->system_timer == NULL) {
             return FLUID_FAILED;
         }
@@ -2107,7 +2107,7 @@ fluid_midi_parser_parse(fluid_midi_parser_t *parser, unsigned char c)
         if (parser->status == MIDI_SYSEX && parser->nr_bytes > 0) {
             event = &parser->event;
             fluid_midi_event_set_sysex(event, parser->data, parser->nr_bytes,
-                                       FALSE);
+                                       FL_FALSE);
         } else
             event = NULL;
 

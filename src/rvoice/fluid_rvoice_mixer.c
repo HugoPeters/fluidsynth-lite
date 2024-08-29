@@ -89,7 +89,7 @@ struct _fluid_rvoice_mixer_t {
 #ifdef ENABLE_MIXER_THREADS
 //  int sleeping_threads;        /**< Atomic: number of threads currently asleep */
 //  int active_threads;          /**< Atomic: number of threads in the thread loop */
-    fluid_atomic_int threads_should_terminate; /**< Atomic: Set to TRUE when threads should terminate */
+    fluid_atomic_int threads_should_terminate; /**< Atomic: Set to FL_TRUE when threads should terminate */
     fluid_atomic_int current_rvoice;           /**< Atomic: for the threads to know next voice to  */
     fluid_cond_t* wakeup_threads; /**< Signalled when the threads should wake up */
     fluid_cond_mutex_t* wakeup_threads_m; /**< wakeup_threads mutex companion */
